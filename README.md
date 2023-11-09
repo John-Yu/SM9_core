@@ -1,8 +1,8 @@
-# sm9_core[![Build status](https://api.travis-ci.org/zcash/bn.svg)](https://travis-ci.org/zcash/bn)
+# sm9_core
 
-This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cryptography) library written in pure Rust. It makes use of the Barreto-Naehrig (BN) curve construction from "SM9 identity-based  cryptographic algorithms" to provide two cyclic groups **G `<sub>`1 `</sub>`** and **G `<sub>`2 `</sub>`**, with an R-ate pairing:
+This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cryptography) library written in pure Rust. It makes use of the Barreto-Naehrig (BN) curve construction from "SM9 identity-based  cryptographic algorithms" to provide two cyclic groups **G <sub>1 </sub>** and **G <sub>2 </sub>**, with an R-ate pairing:
 
-*e: G `<sub>`1 `</sub>` × G `<sub>`2 `</sub>` → G `<sub>`T `</sub>`*
+*e: G <sub>1 </sub> × G <sub>2 </sub> → G <sub>T </sub>*
 
 ## Security warnings
 
@@ -10,9 +10,9 @@ This library, like other pairing cryptography libraries implementing this constr
 
 ## API
 
-* `Fr` is an element of F `<sub>`r `</sub>`
-* `G1` is a point on the BN curve E/Fq : y `<sup>`2 `</sup>` = x `<sup>`3 `</sup>` + b
-* `G2` is a point on the twisted BN curve E'/Fq2 : y `<sup>`2 `</sup>` = x `<sup>`3 `</sup>` + b/xi
+* `Fr` is an element of F <sub>r </sub>
+* `G1` is a point on the BN curve E/Fq : y <sup>2 </sup> = x <sup>3 </sup> + b
+* `G2` is a point on the twisted BN curve E'/Fq2 : y <sup>2 </sup> = x <sup>3 </sup> + b/xi
 * `Gt` is a group element (written multiplicatively) obtained with the `pairing` function over `G1` and `G2`.
 
 ### Examples
