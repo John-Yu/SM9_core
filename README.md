@@ -41,7 +41,7 @@ Copyright 2023 [John-Yu](https://github.com/John-Yu).
 
 ### Thanks
 
-The fields and groups algorithms come from [zcash - bn](https://github.com/zcash-hackworks/bn), and pairing algorithms come from [GmSSl](https://github.com/guanzhi/GmSSL). 
+The fields and groups algorithms come from [zcash - bn](https://github.com/zcash-hackworks/bn), and pairing algorithms come from [GmSSL](https://github.com/guanzhi/GmSSL). 
 
 Thanks for them.
 
