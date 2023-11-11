@@ -44,7 +44,7 @@ impl U256 {
 
         Ok(U256(n))
     }
-
+    /// Converts a U256 into a slice of bytes (big endian)
     pub fn to_big_endian(&self, s: &mut [u8]) -> Result<(), Error> {
         if s.len() != 32 {
             return Err(Error::InvalidLength {

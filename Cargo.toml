@@ -1,10 +1,11 @@
 [package]
 name = "sm9_core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["John Yu <cb8866@sina.com>"]
 description = "SM9,Pairing cryptography with the Barreto-Naehrig curve"
 keywords = ["SM9","pairing","crypto","cryptography"]
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -410,8 +410,8 @@ impl GroupParams for G1Params {
     //generator
     fn one() -> G<Self> {
         G {
-            x: Fq::from_hex(&SM9_P1X).unwrap(),
-            y: Fq::from_hex(&SM9_P1Y).unwrap(),
+            x: Fq::from_slice(&SM9_P1X).unwrap(),
+            y: Fq::from_slice(&SM9_P1Y).unwrap(),
             z: Fq::one(),
         }
     }
@@ -438,12 +438,12 @@ impl GroupParams for G2Params {
     fn one() -> G<Self> {
         G {
             x: Fq2::new(
-                Fq::from_hex(&SM9_P2X0).unwrap(),
-                Fq::from_hex(&SM9_P2X1).unwrap(),
+                Fq::from_slice(&SM9_P2X0).unwrap(),
+                Fq::from_slice(&SM9_P2X1).unwrap(),
             ),
             y: Fq2::new(
-                Fq::from_hex(&SM9_P2Y0).unwrap(),
-                Fq::from_hex(&SM9_P2Y1).unwrap(),
+                Fq::from_slice(&SM9_P2Y0).unwrap(),
+                Fq::from_slice(&SM9_P2Y1).unwrap(),
             ),
             z: Fq2::one(),
         }
@@ -715,13 +715,13 @@ mod tests {
     fn test_g1_dbl() {
         // println!("test_G1_dbl test");
         let p1 = G1::new(
-            Fq::from_hex(&P1X).unwrap(),
-            Fq::from_hex(&P1Y).unwrap(),
+            Fq::from_slice(&P1X).unwrap(),
+            Fq::from_slice(&P1Y).unwrap(),
             Fq::one(),
         );
         let r = G1::new(
-            Fq::from_hex(&P_DBL_X).unwrap(),
-            Fq::from_hex(&P_DBL_Y).unwrap(),
+            Fq::from_slice(&P_DBL_X).unwrap(),
+            Fq::from_slice(&P_DBL_Y).unwrap(),
             Fq::one(),
         );
         assert_eq!(r, p1.double());
@@ -731,18 +731,18 @@ mod tests {
     fn test_g1_add() {
         // println!("test_G1_add test");
         let p1 = G1::new(
-            Fq::from_hex(&P1X).unwrap(),
-            Fq::from_hex(&P1Y).unwrap(),
+            Fq::from_slice(&P1X).unwrap(),
+            Fq::from_slice(&P1Y).unwrap(),
             Fq::one(),
         );
         let p2 = G1::new(
-            Fq::from_hex(&P2X).unwrap(),
-            Fq::from_hex(&P2Y).unwrap(),
+            Fq::from_slice(&P2X).unwrap(),
+            Fq::from_slice(&P2Y).unwrap(),
             Fq::one(),
         );
         let r = G1::new(
-            Fq::from_hex(&P_ADD_X).unwrap(),
-            Fq::from_hex(&P_ADD_Y).unwrap(),
+            Fq::from_slice(&P_ADD_X).unwrap(),
+            Fq::from_slice(&P_ADD_Y).unwrap(),
             Fq::one(),
         );
         assert_eq!(r, p1 + p2);
@@ -752,24 +752,24 @@ mod tests {
     fn test_g1_sub() {
         // println!("test_G1_sub test");
         let p1 = G1::new(
-            Fq::from_hex(&P1X).unwrap(),
-            Fq::from_hex(&P1Y).unwrap(),
+            Fq::from_slice(&P1X).unwrap(),
+            Fq::from_slice(&P1Y).unwrap(),
             Fq::one(),
         );
         let p2 = G1::new(
-            Fq::from_hex(&P2X).unwrap(),
-            Fq::from_hex(&P2Y).unwrap(),
+            Fq::from_slice(&P2X).unwrap(),
+            Fq::from_slice(&P2Y).unwrap(),
             Fq::one(),
         );
         let r = G1::new(
-            Fq::from_hex(&P_NEG_X).unwrap(),
-            Fq::from_hex(&P_NEG_Y).unwrap(),
+            Fq::from_slice(&P_NEG_X).unwrap(),
+            Fq::from_slice(&P_NEG_Y).unwrap(),
             Fq::one(),
         );
         assert_eq!(r, -p1);
         let r = G1::new(
-            Fq::from_hex(&P_SUB_X).unwrap(),
-            Fq::from_hex(&P_SUB_Y).unwrap(),
+            Fq::from_slice(&P_SUB_X).unwrap(),
+            Fq::from_slice(&P_SUB_Y).unwrap(),
             Fq::one(),
         );
         assert_eq!(r, p1 - p2);
@@ -779,16 +779,16 @@ mod tests {
     fn test_g1_mul() {
         // println!("test_G1_mul test");
         let p1 = G1::new(
-            Fq::from_hex(&P1X).unwrap(),
-            Fq::from_hex(&P1Y).unwrap(),
+            Fq::from_slice(&P1X).unwrap(),
+            Fq::from_slice(&P1Y).unwrap(),
             Fq::one(),
         );
         let r = G1::new(
-            Fq::from_hex(&P_MUL_X).unwrap(),
-            Fq::from_hex(&P_MUL_Y).unwrap(),
+            Fq::from_slice(&P_MUL_X).unwrap(),
+            Fq::from_slice(&P_MUL_Y).unwrap(),
             Fq::one(),
         );
-        let k = Fr::from_hex(&HEX_IV).unwrap();
+        let k = Fr::from_slice(&HEX_IV).unwrap();
         assert_eq!(r, p1 * k);
     }
 
@@ -856,21 +856,21 @@ mod tests {
     fn test_g2_dbl() {
         // println!("test_G2_dbl test");
         let x = Fq2::new(
-            Fq::from_hex(&G2_P1XX).unwrap(),
-            Fq::from_hex(&G2_P1XY).unwrap(),
+            Fq::from_slice(&G2_P1XX).unwrap(),
+            Fq::from_slice(&G2_P1XY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_P1YX).unwrap(),
-            Fq::from_hex(&G2_P1YY).unwrap(),
+            Fq::from_slice(&G2_P1YX).unwrap(),
+            Fq::from_slice(&G2_P1YY).unwrap(),
         );
         let p1 = G2::new(x, y, Fq2::one());
         let x = Fq2::new(
-            Fq::from_hex(&G2_DBLXX).unwrap(),
-            Fq::from_hex(&G2_DBLXY).unwrap(),
+            Fq::from_slice(&G2_DBLXX).unwrap(),
+            Fq::from_slice(&G2_DBLXY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_DBLYX).unwrap(),
-            Fq::from_hex(&G2_DBLYY).unwrap(),
+            Fq::from_slice(&G2_DBLYX).unwrap(),
+            Fq::from_slice(&G2_DBLYY).unwrap(),
         );
         let r = G2::new(x, y, Fq2::one());
         assert_eq!(r, p1.double());
@@ -880,30 +880,30 @@ mod tests {
     fn test_g2_add() {
         // println!("test_G2_add test");
         let x = Fq2::new(
-            Fq::from_hex(&G2_P1XX).unwrap(),
-            Fq::from_hex(&G2_P1XY).unwrap(),
+            Fq::from_slice(&G2_P1XX).unwrap(),
+            Fq::from_slice(&G2_P1XY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_P1YX).unwrap(),
-            Fq::from_hex(&G2_P1YY).unwrap(),
+            Fq::from_slice(&G2_P1YX).unwrap(),
+            Fq::from_slice(&G2_P1YY).unwrap(),
         );
         let p1 = G2::new(x, y, Fq2::one());
         let x = Fq2::new(
-            Fq::from_hex(&G2_P2XX).unwrap(),
-            Fq::from_hex(&G2_P2XY).unwrap(),
+            Fq::from_slice(&G2_P2XX).unwrap(),
+            Fq::from_slice(&G2_P2XY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_P2YX).unwrap(),
-            Fq::from_hex(&G2_P2YY).unwrap(),
+            Fq::from_slice(&G2_P2YX).unwrap(),
+            Fq::from_slice(&G2_P2YY).unwrap(),
         );
         let p2 = G2::new(x, y, Fq2::one());
         let x = Fq2::new(
-            Fq::from_hex(&G2_ADDXX).unwrap(),
-            Fq::from_hex(&G2_ADDXY).unwrap(),
+            Fq::from_slice(&G2_ADDXX).unwrap(),
+            Fq::from_slice(&G2_ADDXY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_ADDYX).unwrap(),
-            Fq::from_hex(&G2_ADDYY).unwrap(),
+            Fq::from_slice(&G2_ADDYX).unwrap(),
+            Fq::from_slice(&G2_ADDYY).unwrap(),
         );
         let r = G2::new(x, y, Fq2::one());
         assert_eq!(r, p1 + p2);
@@ -913,24 +913,24 @@ mod tests {
     fn test_g2_mul() {
         // println!("test_G2_mul test");
         let x = Fq2::new(
-            Fq::from_hex(&G2_P1XX).unwrap(),
-            Fq::from_hex(&G2_P1XY).unwrap(),
+            Fq::from_slice(&G2_P1XX).unwrap(),
+            Fq::from_slice(&G2_P1XY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_P1YX).unwrap(),
-            Fq::from_hex(&G2_P1YY).unwrap(),
+            Fq::from_slice(&G2_P1YX).unwrap(),
+            Fq::from_slice(&G2_P1YY).unwrap(),
         );
         let p1 = G2::new(x, y, Fq2::one());
         let x = Fq2::new(
-            Fq::from_hex(&G2_MULXX).unwrap(),
-            Fq::from_hex(&G2_MULXY).unwrap(),
+            Fq::from_slice(&G2_MULXX).unwrap(),
+            Fq::from_slice(&G2_MULXY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_MULYX).unwrap(),
-            Fq::from_hex(&G2_MULYY).unwrap(),
+            Fq::from_slice(&G2_MULYX).unwrap(),
+            Fq::from_slice(&G2_MULYY).unwrap(),
         );
         let r = G2::new(x, y, Fq2::one());
-        let k = Fr::from_hex(&HEX_IV).unwrap();
+        let k = Fr::from_slice(&HEX_IV).unwrap();
         assert_eq!(r, p1 * k);
     }
 
@@ -938,15 +938,15 @@ mod tests {
     fn test_g2_mulg() {
         // println!("test_G2_mulg test");
         let x = Fq2::new(
-            Fq::from_hex(&G2_MULGXX).unwrap(),
-            Fq::from_hex(&G2_MULGXY).unwrap(),
+            Fq::from_slice(&G2_MULGXX).unwrap(),
+            Fq::from_slice(&G2_MULGXY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_MULGYX).unwrap(),
-            Fq::from_hex(&G2_MULGYY).unwrap(),
+            Fq::from_slice(&G2_MULGYX).unwrap(),
+            Fq::from_slice(&G2_MULGYY).unwrap(),
         );
         let r = G2::new(x, y, Fq2::one());
-        let k = Fr::from_hex(&HEX_IV).unwrap();
+        let k = Fr::from_slice(&HEX_IV).unwrap();
         assert_eq!(r, G2::one() * k);
     }
 
@@ -967,8 +967,8 @@ mod tests {
             "Affine initialization should be ok because the point is on the curve"
         );
         let res = AffineG1::new(
-            Fq::from_hex(&SM9_P1X).unwrap(),
-            Fq::from_hex(&SM9_P1Y).unwrap(),
+            Fq::from_slice(&SM9_P1X).unwrap(),
+            Fq::from_slice(&SM9_P1Y).unwrap(),
         );
         assert!(res.is_ok());
     }
@@ -1026,46 +1026,46 @@ mod tests {
     #[test]
     fn test_pairing() {
         let p1 = G1::new(
-            Fq::from_hex(&G1_RAX).unwrap(),
-            Fq::from_hex(&G1_RAY).unwrap(),
+            Fq::from_slice(&G1_RAX).unwrap(),
+            Fq::from_slice(&G1_RAY).unwrap(),
             Fq::one(),
         );
 
         let x = Fq2::new(
-            Fq::from_hex(&G2_DEBXX).unwrap(),
-            Fq::from_hex(&G2_DEBXY).unwrap(),
+            Fq::from_slice(&G2_DEBXX).unwrap(),
+            Fq::from_slice(&G2_DEBXY).unwrap(),
         );
         let y = Fq2::new(
-            Fq::from_hex(&G2_DEBYX).unwrap(),
-            Fq::from_hex(&G2_DEBYY).unwrap(),
+            Fq::from_slice(&G2_DEBYX).unwrap(),
+            Fq::from_slice(&G2_DEBYY).unwrap(),
         );
         let p2 = G2::new(x, y, Fq2::one());
 
         let r0 = Fq2::new(
-            Fq::from_hex(&PAIR2A00).unwrap(),
-            Fq::from_hex(&PAIR2A01).unwrap(),
+            Fq::from_slice(&PAIR2A00).unwrap(),
+            Fq::from_slice(&PAIR2A01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&PAIR2A10).unwrap(),
-            Fq::from_hex(&PAIR2A11).unwrap(),
+            Fq::from_slice(&PAIR2A10).unwrap(),
+            Fq::from_slice(&PAIR2A11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&PAIR2B00).unwrap(),
-            Fq::from_hex(&PAIR2B01).unwrap(),
+            Fq::from_slice(&PAIR2B00).unwrap(),
+            Fq::from_slice(&PAIR2B01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&PAIR2B10).unwrap(),
-            Fq::from_hex(&PAIR2B11).unwrap(),
+            Fq::from_slice(&PAIR2B10).unwrap(),
+            Fq::from_slice(&PAIR2B11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&PAIR2C00).unwrap(),
-            Fq::from_hex(&PAIR2C01).unwrap(),
+            Fq::from_slice(&PAIR2C00).unwrap(),
+            Fq::from_slice(&PAIR2C01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&PAIR2C10).unwrap(),
-            Fq::from_hex(&PAIR2C11).unwrap(),
+            Fq::from_slice(&PAIR2C10).unwrap(),
+            Fq::from_slice(&PAIR2C11).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let r = Fq12::new(a, b, c);

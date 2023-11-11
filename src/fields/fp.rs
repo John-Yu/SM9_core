@@ -63,13 +63,19 @@ macro_rules! field_impl {
             }
 
             /// Converts a &[u8] to an Fp so long as it's below the modulus.
-            pub fn from_hex(hex: &[u8]) -> Option<Self> {
+            pub fn from_slice(hex: &[u8]) -> Option<Self> {
                 match U256::from_slice(hex) {
                     Ok(a) => Self::new(a),
                     Err(_) => None,
                 }
             }
 
+            /// Converts an element of `Fp` into a byte representation in big-endian byte order.
+            pub fn to_slice(&self) -> [u8;32] {
+                let mut res = [0u8;32];
+                self.0.to_big_endian(&mut res[..]).unwrap();
+                res
+            }
             /// Converts a U256 to an Fr regardless of modulus.
             pub fn new_mul_factor(mut a: U256) -> Self {
                 a.mul(&U256::from($rsquared), &U256::from($modulus), $inv);
@@ -247,6 +253,7 @@ field_impl!(
 );
 
 impl Fq {
+    /// Computes the square root of this element, if it exists.
     pub fn sqrt(&self) -> Option<Self> {
         let a1 = self.pow(*FQ_MINUS3_DIV4);
         let a1a = a1 * *self;

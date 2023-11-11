@@ -129,6 +129,16 @@ impl Fq2 {
 
         U512::new(&c1, &c0, &FQ)
     }
+    /// Converts an element of `Fq2` into a byte representation in
+    /// big-endian byte order.
+    pub fn to_slice(&self) -> [u8; 64] {
+        let mut res = [0u8; 64];
+        let u1:U256 = self.c1.into();
+        let u0:U256 = self.c0.into();
+        u1.to_big_endian(&mut res[..32]).unwrap();
+        u0.to_big_endian(&mut res[32..]).unwrap();
+        res
+    }
 }
 
 impl FieldElement for Fq2 {
@@ -156,7 +166,7 @@ impl FieldElement for Fq2 {
     fn is_zero(&self) -> bool {
         self.c0.is_zero() && self.c1.is_zero()
     }
-
+    /// Squares this element
     fn squared(&self) -> Self {
         // Devegili OhEig Scott Dahab
         //     Multiplication and Squaring on Pairing-Friendly Fields.pdf

@@ -678,7 +678,7 @@ mod tests {
             Fq::new(U256::from_slice(&X10).unwrap()).unwrap(),
             Fq::new(U256::from_slice(&X11).unwrap()).unwrap(),
         );
-        let k = Fq::from_hex(&HEX_IV).unwrap();
+        let k = Fq::from_slice(&HEX_IV).unwrap();
         let x = Fq4::new(x0, x1);
         let r0 = Fq2::new(
             Fq::new(U256::from_slice(&R_MUL_FP00).unwrap()).unwrap(),
@@ -856,59 +856,59 @@ mod tests {
     fn test_fq12_sqr() {
         // println!("test_fq12_sqr test");
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL00).unwrap(),
-            Fq::from_hex(&R_MUL01).unwrap(),
+            Fq::from_slice(&R_MUL00).unwrap(),
+            Fq::from_slice(&R_MUL01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL10).unwrap(),
-            Fq::from_hex(&R_MUL11).unwrap(),
+            Fq::from_slice(&R_MUL10).unwrap(),
+            Fq::from_slice(&R_MUL11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP00).unwrap(),
-            Fq::from_hex(&R_MUL_FP01).unwrap(),
+            Fq::from_slice(&R_MUL_FP00).unwrap(),
+            Fq::from_slice(&R_MUL_FP01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP10).unwrap(),
-            Fq::from_hex(&R_MUL_FP11).unwrap(),
+            Fq::from_slice(&R_MUL_FP10).unwrap(),
+            Fq::from_slice(&R_MUL_FP11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP200).unwrap(),
-            Fq::from_hex(&R_MUL_FP201).unwrap(),
+            Fq::from_slice(&R_MUL_FP200).unwrap(),
+            Fq::from_slice(&R_MUL_FP201).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP210).unwrap(),
-            Fq::from_hex(&R_MUL_FP211).unwrap(),
+            Fq::from_slice(&R_MUL_FP210).unwrap(),
+            Fq::from_slice(&R_MUL_FP211).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let x = Fq12::new(a, b, c);
 
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_SQRA00).unwrap(),
-            Fq::from_hex(&FP12_SQRA01).unwrap(),
+            Fq::from_slice(&FP12_SQRA00).unwrap(),
+            Fq::from_slice(&FP12_SQRA01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_SQRA10).unwrap(),
-            Fq::from_hex(&FP12_SQRA11).unwrap(),
+            Fq::from_slice(&FP12_SQRA10).unwrap(),
+            Fq::from_slice(&FP12_SQRA11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_SQRB00).unwrap(),
-            Fq::from_hex(&FP12_SQRB01).unwrap(),
+            Fq::from_slice(&FP12_SQRB00).unwrap(),
+            Fq::from_slice(&FP12_SQRB01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_SQRB10).unwrap(),
-            Fq::from_hex(&FP12_SQRB11).unwrap(),
+            Fq::from_slice(&FP12_SQRB10).unwrap(),
+            Fq::from_slice(&FP12_SQRB11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_SQRC00).unwrap(),
-            Fq::from_hex(&FP12_SQRC01).unwrap(),
+            Fq::from_slice(&FP12_SQRC00).unwrap(),
+            Fq::from_slice(&FP12_SQRC01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_SQRC10).unwrap(),
-            Fq::from_hex(&FP12_SQRC11).unwrap(),
+            Fq::from_slice(&FP12_SQRC10).unwrap(),
+            Fq::from_slice(&FP12_SQRC11).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let r = Fq12::new(a, b, c);
@@ -920,88 +920,88 @@ mod tests {
     fn test_fq12_mul() {
         // println!("test_fq12_mul test");
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL00).unwrap(),
-            Fq::from_hex(&R_MUL01).unwrap(),
+            Fq::from_slice(&R_MUL00).unwrap(),
+            Fq::from_slice(&R_MUL01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL10).unwrap(),
-            Fq::from_hex(&R_MUL11).unwrap(),
+            Fq::from_slice(&R_MUL10).unwrap(),
+            Fq::from_slice(&R_MUL11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP00).unwrap(),
-            Fq::from_hex(&R_MUL_FP01).unwrap(),
+            Fq::from_slice(&R_MUL_FP00).unwrap(),
+            Fq::from_slice(&R_MUL_FP01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP10).unwrap(),
-            Fq::from_hex(&R_MUL_FP11).unwrap(),
+            Fq::from_slice(&R_MUL_FP10).unwrap(),
+            Fq::from_slice(&R_MUL_FP11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP200).unwrap(),
-            Fq::from_hex(&R_MUL_FP201).unwrap(),
+            Fq::from_slice(&R_MUL_FP200).unwrap(),
+            Fq::from_slice(&R_MUL_FP201).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP210).unwrap(),
-            Fq::from_hex(&R_MUL_FP211).unwrap(),
+            Fq::from_slice(&R_MUL_FP210).unwrap(),
+            Fq::from_slice(&R_MUL_FP211).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let x = Fq12::new(a, b, c);
 
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_V00).unwrap(),
-            Fq::from_hex(&R_MUL_V01).unwrap(),
+            Fq::from_slice(&R_MUL_V00).unwrap(),
+            Fq::from_slice(&R_MUL_V01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_V10).unwrap(),
-            Fq::from_hex(&R_MUL_V11).unwrap(),
+            Fq::from_slice(&R_MUL_V10).unwrap(),
+            Fq::from_slice(&R_MUL_V11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_SQR00).unwrap(),
-            Fq::from_hex(&R_SQR01).unwrap(),
+            Fq::from_slice(&R_SQR00).unwrap(),
+            Fq::from_slice(&R_SQR01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_SQR10).unwrap(),
-            Fq::from_hex(&R_SQR11).unwrap(),
+            Fq::from_slice(&R_SQR10).unwrap(),
+            Fq::from_slice(&R_SQR11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_INV00).unwrap(),
-            Fq::from_hex(&R_INV01).unwrap(),
+            Fq::from_slice(&R_INV00).unwrap(),
+            Fq::from_slice(&R_INV01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_INV10).unwrap(),
-            Fq::from_hex(&R_INV11).unwrap(),
+            Fq::from_slice(&R_INV10).unwrap(),
+            Fq::from_slice(&R_INV11).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let y = Fq12::new(a, b, c);
 
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_MULA00).unwrap(),
-            Fq::from_hex(&FP12_MULA01).unwrap(),
+            Fq::from_slice(&FP12_MULA00).unwrap(),
+            Fq::from_slice(&FP12_MULA01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_MULA10).unwrap(),
-            Fq::from_hex(&FP12_MULA11).unwrap(),
+            Fq::from_slice(&FP12_MULA10).unwrap(),
+            Fq::from_slice(&FP12_MULA11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_MULB00).unwrap(),
-            Fq::from_hex(&FP12_MULB01).unwrap(),
+            Fq::from_slice(&FP12_MULB00).unwrap(),
+            Fq::from_slice(&FP12_MULB01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_MULB10).unwrap(),
-            Fq::from_hex(&FP12_MULB11).unwrap(),
+            Fq::from_slice(&FP12_MULB10).unwrap(),
+            Fq::from_slice(&FP12_MULB11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_MULC00).unwrap(),
-            Fq::from_hex(&FP12_MULC01).unwrap(),
+            Fq::from_slice(&FP12_MULC00).unwrap(),
+            Fq::from_slice(&FP12_MULC01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_MULC10).unwrap(),
-            Fq::from_hex(&FP12_MULC11).unwrap(),
+            Fq::from_slice(&FP12_MULC10).unwrap(),
+            Fq::from_slice(&FP12_MULC11).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let r = Fq12::new(a, b, c);
@@ -1014,59 +1014,59 @@ mod tests {
         // println!("test_fq12_inv test");
         can_invert::<Fq12>();
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL00).unwrap(),
-            Fq::from_hex(&R_MUL01).unwrap(),
+            Fq::from_slice(&R_MUL00).unwrap(),
+            Fq::from_slice(&R_MUL01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL10).unwrap(),
-            Fq::from_hex(&R_MUL11).unwrap(),
+            Fq::from_slice(&R_MUL10).unwrap(),
+            Fq::from_slice(&R_MUL11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP00).unwrap(),
-            Fq::from_hex(&R_MUL_FP01).unwrap(),
+            Fq::from_slice(&R_MUL_FP00).unwrap(),
+            Fq::from_slice(&R_MUL_FP01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP10).unwrap(),
-            Fq::from_hex(&R_MUL_FP11).unwrap(),
+            Fq::from_slice(&R_MUL_FP10).unwrap(),
+            Fq::from_slice(&R_MUL_FP11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP200).unwrap(),
-            Fq::from_hex(&R_MUL_FP201).unwrap(),
+            Fq::from_slice(&R_MUL_FP200).unwrap(),
+            Fq::from_slice(&R_MUL_FP201).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&R_MUL_FP210).unwrap(),
-            Fq::from_hex(&R_MUL_FP211).unwrap(),
+            Fq::from_slice(&R_MUL_FP210).unwrap(),
+            Fq::from_slice(&R_MUL_FP211).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let x = Fq12::new(a, b, c);
 
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_INVA00).unwrap(),
-            Fq::from_hex(&FP12_INVA01).unwrap(),
+            Fq::from_slice(&FP12_INVA00).unwrap(),
+            Fq::from_slice(&FP12_INVA01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_INVA10).unwrap(),
-            Fq::from_hex(&FP12_INVA11).unwrap(),
+            Fq::from_slice(&FP12_INVA10).unwrap(),
+            Fq::from_slice(&FP12_INVA11).unwrap(),
         );
         let a = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_INVB00).unwrap(),
-            Fq::from_hex(&FP12_INVB01).unwrap(),
+            Fq::from_slice(&FP12_INVB00).unwrap(),
+            Fq::from_slice(&FP12_INVB01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_INVB10).unwrap(),
-            Fq::from_hex(&FP12_INVB11).unwrap(),
+            Fq::from_slice(&FP12_INVB10).unwrap(),
+            Fq::from_slice(&FP12_INVB11).unwrap(),
         );
         let b = Fq4::new(r0, r1);
         let r0 = Fq2::new(
-            Fq::from_hex(&FP12_INVC00).unwrap(),
-            Fq::from_hex(&FP12_INVC01).unwrap(),
+            Fq::from_slice(&FP12_INVC00).unwrap(),
+            Fq::from_slice(&FP12_INVC01).unwrap(),
         );
         let r1 = Fq2::new(
-            Fq::from_hex(&FP12_INVC10).unwrap(),
-            Fq::from_hex(&FP12_INVC11).unwrap(),
+            Fq::from_slice(&FP12_INVC10).unwrap(),
+            Fq::from_slice(&FP12_INVC11).unwrap(),
         );
         let c = Fq4::new(r0, r1);
         let r = Fq12::new(a, b, c);

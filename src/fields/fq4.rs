@@ -106,6 +106,17 @@ impl Fq4 {
     pub fn unitary_inverse(&self) -> Fq4 {
         Fq4::new(self.c0, -self.c1)
     }
+    /// Converts an element into a byte representation in
+    /// big-endian byte order.
+    pub fn to_slice(&self) -> [u8; 128] {
+        let mut res = [0u8; 128];
+        let b1 = self.c1.to_slice();
+        let b0 = self.c0.to_slice();
+        res[0..64].copy_from_slice(&b1);
+        res[64..].copy_from_slice(&b0);
+        res
+    }
+
 }
 
 impl FieldElement for Fq4 {
