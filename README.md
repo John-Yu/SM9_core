@@ -8,6 +8,21 @@ This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cry
 
 This library, like other pairing cryptography libraries implementing this construction, is not resistant to side-channel attacks.
 
+## Usage
+
+Add the `sm9_core` crate to your dependencies in `Cargo.toml`...
+
+```toml
+[dependencies]
+sm9_core = "0.1.1"
+```
+
+...and add an `extern crate` declaration to your crate root:
+
+```rust
+extern crate sm9_core;
+```
+
 ## API
 
 * `Fr` is an element of F <sub>r </sub>
