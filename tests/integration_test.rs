@@ -1,6 +1,6 @@
 // import commonly used items from the prelude:
-use rand::prelude::*;
 use hex_literal::hex;
+use rand::prelude::*;
 use sm9_core::*;
 
 //A single round protocol is possible through the use of a bilinear pairing: given Alice's public key aP1 and Bob's public key bP2,
@@ -21,13 +21,14 @@ fn test_joux() {
     let (alice_pk1, alice_pk2) = (G1::one() * alice_sk, G2::one() * alice_sk);
     let (bob_pk1, bob_pk2) = (G1::one() * bob_sk, G2::one() * bob_sk);
     let (carol_pk1, carol_pk2) = (G1::one() * carol_sk, G2::one() * carol_sk);
+
     // Each party computes the shared secret
     let alice_ss = pairing(bob_pk1, carol_pk2).pow(alice_sk);
     let bob_ss = pairing(carol_pk1, alice_pk2).pow(bob_sk);
     let carol_ss = pairing(alice_pk1, bob_pk2).pow(carol_sk);
 
-    //unfortunately, they are not equal
-    //assert!(alice_ss == bob_ss && bob_ss == carol_ss);
+    // they are equal
+    assert!(alice_ss == bob_ss && bob_ss == carol_ss);
 }
 
 // This is an example of three-party Diffie-Hellman key exchange
@@ -58,11 +59,40 @@ fn test_dh() {
     // All parties should arrive to the same shared secret
     assert!(alice_dh_2 == bob_dh_2 && bob_dh_2 == carol_dh_2);
 }
+#[test]
+fn test_bilinearity() {
+    let rng = &mut thread_rng();
+    let a = Fr::random(rng);
+    let b = Fr::random(rng);
+    let c = a * b;
+
+    let g = G1::one() * a;
+    let h = G2::one() * b;
+    let p = pairing(g, h);
+
+    assert_eq!(p, pairing(G1::one(), G2::one()).pow(c));
+}
+
+#[test]
+fn test_unitary() {
+    let g = G1::one();
+    let h = G2::one();
+    let q = pairing(g, -h);
+    let r = pairing(-g, h);
+
+    assert_eq!(q, r);
+}
 
 #[test]
 fn test_gt_to_slice() {
-    let ks = Fr::from_slice(&hex!("000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")).unwrap();
-    let r = Fr::from_slice(&hex!("00033C86 16B06704 813203DF D0096502 2ED15975 C662337A ED648835 DC4B1CBE")).unwrap();
+    let ks = Fr::from_slice(&hex!(
+        "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
+    ))
+    .unwrap();
+    let r = Fr::from_slice(&hex!(
+        "00033C86 16B06704 813203DF D0096502 2ED15975 C662337A ED648835 DC4B1CBE"
+    ))
+    .unwrap();
     let pub_s = G2::one() * ks;
     let g = pairing(G1::one(), pub_s).pow(r);
     let r1 = g.to_slice();
@@ -82,5 +112,4 @@ fn test_gt_to_slice() {
         "1F96B08E 97997363 91131470 5BFB9A9D BB97F755 53EC90FB B2DDAE53 C8F68E42"
     );
     assert_eq!(r0, r1)
-
 }

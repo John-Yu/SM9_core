@@ -6,13 +6,17 @@
 //! - no unsafe{}
 //! 
 #![no_std]
+#![deny(unsafe_code)]
 
+#[cfg(test)]
+#[macro_use]
+extern crate std;
 
 extern crate alloc;
 extern crate hex_literal;
 extern crate rand;
 
-pub mod arith;
+mod arith;
 
 mod fields;
 mod groups;
@@ -28,12 +32,16 @@ use crate::groups::{G1Params, G2Params, GroupElement, GroupParams};
 use crate::u256::U256;
 use crate::u512::U512;
 
+/// Represents an element of the finite field F<sub>r</sub>
+// where r = 0xB640000002A3A6F1D603AB4FF58EC74449F2934B18EA8BEEE56EE19CD69ECF25
+// Elements of Fr are always in Montgomery form; i.e., Fr(a) = aR mod r, with R = 2^256.
+
 /// # Examples
 ///
 /// ```rust
 /// use sm9_core::*;
 /// use hex_literal::hex;
-/// 
+///
 /// let ks = Fr::from_slice(&hex!("000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")).unwrap();
 /// let r = Fr::from_slice(&hex!("00033C86 16B06704 813203DF D0096502 2ED15975 C662337A ED648835 DC4B1CBE")).unwrap();
 /// let pub_s = G2::one() * ks;
@@ -57,9 +65,6 @@ use crate::u512::U512;
 /// assert_eq!(r0, r1)
 /// ```
 
-/// Represents an element of the finite field F<sub>r</sub>
-// where r = 0xB640000002A3A6F1D603AB4FF58EC74449F2934B18EA8BEEE56EE19CD69ECF25  
-// Elements of Fr are always in Montgomery form; i.e., Fr(a) = aR mod r, with R = 2^256.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct Fr(fields::Fr);
@@ -78,7 +83,7 @@ impl Fr {
     pub fn pow(&self, exp: Fr) -> Self {
         Fr(self.0.pow(exp.0))
     }
-    /// Attempts to convert a string base 10 to a element of `Fr` 
+    /// Attempts to convert a string base 10 to a element of `Fr`
     pub fn from_str(s: &str) -> Option<Self> {
         fields::Fr::from_str(s).map(|e| Fr(e))
     }
@@ -108,7 +113,7 @@ impl Fr {
     }
     /// Converts an element of `Fr` into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8;32] {
+    pub fn to_slice(&self) -> [u8; 32] {
         self.0.to_slice()
     }
     pub fn new(val: U256) -> Option<Self> {
@@ -183,7 +188,7 @@ impl From<FieldError> for CurveError {
 pub use crate::groups::Error as GroupError;
 
 /// Represents an element of the finite field F<sub>q</sub>
-// where q = 0xB640000002A3A6F1D603AB4FF58EC74521F2934B1A7AEEDBE56F9B27E351457D  
+// where q = 0xB640000002A3A6F1D603AB4FF58EC74521F2934B1A7AEEDBE56F9B27E351457D
 // Elements of Fq are always in Montgomery form; i.e., Fq(a) = aR mod q, with R = 2^256.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -203,7 +208,7 @@ impl Fq {
     pub fn pow(&self, exp: Fq) -> Self {
         Fq(self.0.pow(exp.0))
     }
-    /// Attempts to convert a string base 10 to a element of `Fq` 
+    /// Attempts to convert a string base 10 to a element of `Fq`
     pub fn from_str(s: &str) -> Option<Self> {
         fields::Fq::from_str(s).map(|e| Fq(e))
     }
@@ -214,7 +219,7 @@ impl Fq {
     }
     /// Converts an element of `Fq` into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8;32] {
+    pub fn to_slice(&self) -> [u8; 32] {
         self.0.to_slice()
     }
     /// Computes the multiplicative inverse of this element,
@@ -231,7 +236,8 @@ impl Fq {
     /// Converts an element into a slice of bytes in
     /// big-endian byte order.
     pub fn to_big_endian(&self, slice: &mut [u8]) -> Result<(), FieldError> {
-        self.into_u256().to_big_endian(slice)
+        self.into_u256()
+            .to_big_endian(slice)
             .map_err(|_| FieldError::InvalidSliceLength)
     }
     pub fn from_u256(u256: U256) -> Result<Self, FieldError> {
@@ -392,7 +398,7 @@ pub trait Group:
     fn normalize(&mut self);
 }
 
-/// /// an additive cyclic group of prime order r
+/// an additive cyclic group of prime order r
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -741,7 +747,9 @@ impl From<AffineG2> for G2 {
     }
 }
 
-pub fn pairing(p: G1, q: G2) -> Gt {
+pub fn pairing(mut p: G1, mut q: G2) -> Gt {
+    p.normalize();
+    q.normalize();
     Gt(groups::pairing(&p.0, &q.0))
 }
 
@@ -755,12 +763,13 @@ mod tests {
     #[test]
     fn test_fq_to_big_endian() {
         let a = Fq::from_str("1").unwrap();
-        let mut b = [0u8;32];
-        let mut c = [0u8;32];
+        let mut b = [0u8; 32];
+        let mut c = [0u8; 32];
         c[31] = 1;
         a.to_big_endian(&mut b[..]).unwrap();
         assert_eq!(b, c);
     }
+
     #[test]
     fn lib_g1_mul() {
         let t2 = Fr::from_slice(&hex!(
@@ -815,7 +824,7 @@ mod tests {
         );
         let r = G2::new(x, y, Fq2::one());
 
-        // println!("pub_s {:?}", pub_s);
+        println!("pub_s {:?}", pub_s);
         assert_eq!(r, pub_s);
     }
 
@@ -897,8 +906,14 @@ mod tests {
 
     #[test]
     fn lib_gt_pow_test() {
-        let ks = Fr::from_slice(&hex!("000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")).unwrap();
-        let r = Fr::from_slice(&hex!("00033C86 16B06704 813203DF D0096502 2ED15975 C662337A ED648835 DC4B1CBE")).unwrap();
+        let ks = Fr::from_slice(&hex!(
+            "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
+        ))
+        .unwrap();
+        let r = Fr::from_slice(&hex!(
+            "00033C86 16B06704 813203DF D0096502 2ED15975 C662337A ED648835 DC4B1CBE"
+        ))
+        .unwrap();
         let pub_s = G2::one() * ks;
         let g = pairing(G1::one(), pub_s).pow(r);
         // println!(" {:#?}", g);

@@ -14,7 +14,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`...
 
 ```toml
 [dependencies]
-sm9_core = "0.1.1"
+sm9_core = "0.1.2"
 ```
 
 ...and add an `extern crate` declaration to your crate root:

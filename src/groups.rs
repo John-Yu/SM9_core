@@ -676,6 +676,33 @@ mod tests {
         assert!((G::one() * (-Fr::one()) + G::one()).is_zero());
     }
 
+    fn test_projective_negation_and_subtraction<G: GroupElement>() {
+        let a = G::one().double();
+        assert_eq!(a + (-a), G::zero());
+        assert_eq!(a + (-a), a - a);
+    }
+
+    fn test_projective_double_and_add<G: GroupElement>() {
+        let a = G::one().double().double(); // 4P
+        let b = G::one().double(); // 2P
+        let c = a + b; //6P
+
+        let mut d = G::one();
+        for _ in 0..5 {
+            d = d + G::one();
+        }
+        assert_eq!(c, d);
+    }
+
+    #[test]
+    fn test_g1_negation_and_subtraction() {
+        test_projective_negation_and_subtraction::<G1>();
+    }
+    #[test]
+    fn test_g2_negation_and_subtraction() {
+        test_projective_negation_and_subtraction::<G2>();
+    }
+
     #[test]
     fn test_g1() {
         // println!("test_G1 test");
@@ -746,6 +773,7 @@ mod tests {
             Fq::one(),
         );
         assert_eq!(r, p1 + p2);
+        test_projective_double_and_add::<G1>();
     }
 
     #[test]
@@ -907,6 +935,7 @@ mod tests {
         );
         let r = G2::new(x, y, Fq2::one());
         assert_eq!(r, p1 + p2);
+        test_projective_double_and_add::<G2>();
     }
 
     #[test]
@@ -972,7 +1001,16 @@ mod tests {
         );
         assert!(res.is_ok());
     }
+    #[test]
+    fn test_projective_point_equality() {
+        let a = G1::one();
+        let b = G1::zero();
 
+        assert!(a == a);
+        assert!(b == b);
+        assert!(a != b);
+        assert!(b != a);
+    }
     #[test]
     fn test_y_at_point_at_infinity() {
         assert!(G1::zero().y == Fq::one());
