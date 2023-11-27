@@ -1,10 +1,10 @@
 //! # sm9_core
 //!
-//! A pairing cryptography library written in pure Rust. 
-//! It makes use of the Barreto-Naehrig (BN) curve construction from "SM9 identity-based cryptographic algorithms" to provide two cyclic groups G<sub>1</sub> and G<sub>2</sub> , with a R-ate pairing. 
+//! A pairing cryptography library written in pure Rust.
+//! It makes use of the Barreto-Naehrig (BN) curve construction from "SM9 identity-based cryptographic algorithms" to provide two cyclic groups G<sub>1</sub> and G<sub>2</sub> , with a R-ate pairing.
 //! - no_std
 //! - no unsafe{}
-//! 
+//!
 #![no_std]
 #![deny(unsafe_code)]
 
@@ -17,9 +17,9 @@ extern crate hex_literal;
 extern crate rand;
 
 mod arith;
-
 mod fields;
 mod groups;
+mod pairings;
 mod u256;
 mod u512;
 
@@ -29,6 +29,9 @@ use rand::Rng;
 
 use crate::fields::FieldElement;
 use crate::groups::{G1Params, G2Params, GroupElement, GroupParams};
+/// This structure contains cached computations pertaining to a G2
+/// element as part of the pairing function
+pub use crate::pairings::G2Prepared;
 use crate::u256::U256;
 use crate::u512::U512;
 
@@ -288,7 +291,7 @@ impl Mul for Fq {
         Fq(self.0 * other.0)
     }
 }
-
+/// Represents an element of the finite field F<sub>q</sub>2
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct Fq2(fields::Fq2);
@@ -657,9 +660,6 @@ impl Gt {
     pub fn inverse(&self) -> Option<Self> {
         self.0.inverse().map(Gt)
     }
-    pub fn final_exponentiation(&self) -> Option<Self> {
-        self.0.final_exponentiation().map(Gt)
-    }
     /// Converts an element into a byte representation in
     /// big-endian byte order.
     pub fn to_slice(&self) -> [u8; 384] {
@@ -746,11 +746,32 @@ impl From<AffineG2> for G2 {
         G2(affine.0.to_jacobian())
     }
 }
-
-pub fn pairing(mut p: G1, mut q: G2) -> Gt {
+impl From<G2> for G2Prepared {
+    fn from(g2: G2) -> G2Prepared {
+        let mut g = g2;
+        g.normalize();
+        G2Prepared::from(g.0)
+    }
+}
+impl G2Prepared {
+    pub fn pairing(&self, g1: &G1) -> Gt {
+        let mut g = *g1;
+        g.normalize();
+        Gt(self
+            .miller_loop(&g.0)
+            .final_exp()
+            .expect("miller loop cannot produce zero"))
+    }
+}
+/// compute R-ate Pairing G2 x G1 -> GT
+pub fn pairing(p: G1, q: G2) -> Gt {
+    Gt(pairings::pairing(&p.0, &q.0))
+}
+/// compute R-ate Pairing G2 x G1 -> GT 
+pub fn fast_pairing(mut p: G1, mut q: G2) -> Gt {
     p.normalize();
     q.normalize();
-    Gt(groups::pairing(&p.0, &q.0))
+    Gt(pairings::fast_pairing(&p.0, &q.0))
 }
 
 /************************************************************************************************ */

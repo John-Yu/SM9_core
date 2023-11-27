@@ -689,7 +689,7 @@ mod tests {
             Fq::new(U256::from_slice(&R_MUL_FP11).unwrap()).unwrap(),
         );
         let r = Fq4::new(r0, r1);
-        assert_eq!(r, x.scale_fq(k));
+        assert_eq!(r, x.scale_fq(&k));
     }
 
     #[test]
@@ -717,7 +717,7 @@ mod tests {
             Fq::new(U256::from_slice(&R_MUL_FP211).unwrap()).unwrap(),
         );
         let r = Fq4::new(r0, r1);
-        assert_eq!(r, x.scale(y));
+        assert_eq!(r, x.scale(&y));
     }
 
     #[test]

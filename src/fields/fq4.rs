@@ -19,14 +19,14 @@ impl Fq4 {
     }
 
     //Algorithm 7
-    pub fn scale(&self, by: Fq2) -> Self {
+    pub fn scale(&self, by: &Fq2) -> Self {
         Fq4 {
-            c0: self.c0 * by,
-            c1: self.c1 * by,
+            c0: self.c0 * *by,
+            c1: self.c1 * *by,
         }
     }
 
-    pub fn scale_fq(&self, by: Fq) -> Self {
+    pub fn scale_fq(&self, by: &Fq) -> Self {
         Fq4 {
             c0: self.c0.scale(by),
             c1: self.c1.scale(by),
@@ -49,34 +49,34 @@ impl Fq4 {
                 c1: self
                     .c1
                     .unitary_inverse()
-                    .scale(Fq::new(*SM9_ALPHA3).unwrap()),
+                    .scale(&Fq::new(*SM9_ALPHA3).unwrap()),
             },
             11 => Fq4 {
                 c0: self
                     .c0
                     .unitary_inverse()
-                    .scale(Fq::new(*SM9_ALPHA1).unwrap()),
+                    .scale(&Fq::new(*SM9_ALPHA1).unwrap()),
                 c1: self
                     .c1
                     .unitary_inverse()
-                    .scale(Fq::new(*SM9_ALPHA4).unwrap()),
+                    .scale(&Fq::new(*SM9_ALPHA4).unwrap()),
             },
             12 => Fq4 {
                 c0: self
                     .c0
                     .unitary_inverse()
-                    .scale(Fq::new(*SM9_ALPHA2).unwrap()),
+                    .scale(&Fq::new(*SM9_ALPHA2).unwrap()),
                 c1: self
                     .c1
                     .unitary_inverse()
-                    .scale(Fq::new(*SM9_ALPHA5).unwrap()),
+                    .scale(&Fq::new(*SM9_ALPHA5).unwrap()),
             },
             21 => self
                 .unitary_inverse()
-                .scale_fq(Fq::new(*SM9_ALPHA2).unwrap()),
+                .scale_fq(&Fq::new(*SM9_ALPHA2).unwrap()),
             22 => self
                 .unitary_inverse()
-                .scale_fq(Fq::new(*SM9_ALPHA4).unwrap()),
+                .scale_fq(&Fq::new(*SM9_ALPHA4).unwrap()),
             30 => Fq4 {
                 c0: self.c0.unitary_inverse(),
                 c1: self
@@ -116,7 +116,6 @@ impl Fq4 {
         res[64..].copy_from_slice(&b0);
         res
     }
-
 }
 
 impl FieldElement for Fq4 {

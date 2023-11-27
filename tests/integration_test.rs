@@ -71,6 +71,11 @@ fn test_bilinearity() {
     let p = pairing(g, h);
 
     assert_eq!(p, pairing(G1::one(), G2::one()).pow(c));
+    assert_eq!(p, fast_pairing(G1::one(), G2::one()).pow(c));
+
+    let g2_precomputed = G2Prepared::from(h);
+    assert_eq!(p, g2_precomputed.pairing(&G1::one()).pow(a));
+    assert_eq!(p, g2_precomputed.pairing(&g));
 }
 
 #[test]
@@ -111,5 +116,8 @@ fn test_gt_to_slice() {
         "6A814AAF 475F128A EF43A128 E37F8015 4AE6CB92 CAD7D150 1BAE30F7 50B3A9BD"
         "1F96B08E 97997363 91131470 5BFB9A9D BB97F755 53EC90FB B2DDAE53 C8F68E42"
     );
-    assert_eq!(r0, r1)
+    assert_eq!(r0, r1);
+    let g1 = fast_pairing(G1::one(), pub_s).pow(r);
+    let r1 = g1.to_slice();
+    assert_eq!(r0, r1);
 }

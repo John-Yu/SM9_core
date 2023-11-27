@@ -20,10 +20,10 @@ impl Fq2 {
     }
 
     //Algorithm 7
-    pub fn scale(&self, by: Fq) -> Self {
+    pub fn scale(&self, by: &Fq) -> Self {
         Fq2 {
-            c0: self.c0 * by,
-            c1: self.c1 * by,
+            c0: self.c0 * *by,
+            c1: self.c1 * *by,
         }
     }
 
@@ -178,7 +178,6 @@ impl FieldElement for Fq2 {
 
         //c0: c0^2 - 2 * c1^2
         Fq2 {
-            // c0: (self.c1 * fq_non_residue() + self.c0) * (self.c0 + self.c1) - ab - ab * fq_non_residue(),
             c0: aa - bb - bb,
             c1: ab + ab,
         }

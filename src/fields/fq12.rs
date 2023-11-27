@@ -1,17 +1,16 @@
 #![allow(dead_code)]
 
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, Mul, MulAssign, Neg, Sub};
 use rand::Rng;
 
 use crate::fields::{FieldElement, Fq4};
-use crate::u256::U256;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct Fq12 {
-    pub c0: Fq4,
-    pub c1: Fq4,
-    pub c2: Fq4,
+    pub(crate) c0: Fq4,
+    pub(crate) c1: Fq4,
+    pub(crate) c2: Fq4,
 }
 
 impl Fq12 {
@@ -27,58 +26,12 @@ impl Fq12 {
         }
     }
 
-    pub fn scale(&self, by: Fq4) -> Self {
+    pub fn scale(&self, by: &Fq4) -> Self {
         Fq12 {
-            c0: self.c0 * by,
-            c1: self.c1 * by,
-            c2: self.c2 * by,
+            c0: self.c0 * *by,
+            c1: self.c1 * *by,
+            c2: self.c2 * *by,
         }
-    }
-
-    fn final_exponentiation_first_chunk(&self) -> Option<Fq12> {
-        match self.inverse() {
-            Some(b) => {
-                let a = self.frobenius_map(6);
-                let c = a * b;
-                let d = c.frobenius_map(2);
-
-                Some(d * c)
-            }
-            None => None,
-        }
-    }
-
-    fn final_exponentiation_last_chunk(&self) -> Fq12 {
-        let a = self.pow(*SM9_A3);
-        let b = a.inverse().unwrap();
-        let c = b.frobenius_map(1);
-        let d = c * b;
-
-        let e = d * b;
-        let f = self.frobenius_map(1);
-        let g = *self * f;
-        let h = g.pow(*SM9_NINE);
-
-        let i = e * h;
-        let j = self.squared();
-        let k = j.squared();
-        let l = k * i;
-        let m = f.squared();
-        let n = d * m;
-        let o = self.frobenius_map(2);
-        let p = o * n;
-
-        let q = p.pow(*SM9_A2);
-        let r = q * l;
-        let s = self.frobenius_map(3);
-        let t = s * r;
-
-        t
-    }
-
-    pub fn final_exponentiation(&self) -> Option<Fq12> {
-        self.final_exponentiation_first_chunk()
-            .map(|a| a.final_exponentiation_last_chunk())
     }
 
     pub fn frobenius_map(&self, power: usize) -> Self {
@@ -88,13 +41,12 @@ impl Fq12 {
                 c1: self.c1.frobenius_map(11),
                 c2: self.c2.frobenius_map(12),
             },
-            2 => {
-                Fq12 {
-                    c0: self.c0.unitary_inverse(),
-                    c1: self.c1.frobenius_map(21), // case 2 for c1 , so call  21
-                    c2: self.c2.frobenius_map(22),
-                }
-            }
+            2 => Fq12 {
+                c0: self.c0.unitary_inverse(),
+                c1: self.c1.frobenius_map(21), // case 2 for c1 , so call  21
+                c2: self.c2.frobenius_map(22),
+            },
+
             3 => Fq12 {
                 c0: self.c0.frobenius_map(30),
                 c1: self.c1.frobenius_map(31),
@@ -120,7 +72,6 @@ impl Fq12 {
         res[256..].copy_from_slice(&b0);
         res
     }
-
 }
 
 impl FieldElement for Fq12 {
@@ -198,6 +149,11 @@ impl Mul for Fq12 {
         }
     }
 }
+impl MulAssign for Fq12 {
+    fn mul_assign(&mut self, rhs: Fq12) {
+        *self = *self * rhs;
+    }
+}
 
 impl Sub for Fq12 {
     type Output = Fq12;
@@ -233,28 +189,4 @@ impl Neg for Fq12 {
             c2: -self.c2,
         }
     }
-}
-
-lazy_static::lazy_static! {
-
-    // a2 = 0xd8000000019062ed 0000b98b0cb27659
-    // a3 = 0x2 400000000215d941
-    static ref SM9_A2: U256 = U256::from([
-            0x0000b98b0cb27659,
-            0xd8000000019062ed,
-            0x0,
-            0x0
-        ]);
-    static ref SM9_A3: U256 = U256::from([
-        0x400000000215d941,
-        0x2,
-        0x0,
-        0x0
-    ]);
-    static ref SM9_NINE: U256 = U256::from([
-        0x9,
-        0x0,
-        0x0,
-        0x0
-    ]);
 }

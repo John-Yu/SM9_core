@@ -5,16 +5,10 @@ use core::{
     ops::{Add, Mul, Neg, Sub},
 };
 use hex_literal::hex;
+use rand::Rng;
 
-use crate::fields::{FieldElement, Fq, Fq12, Fq2, Fq4, Fr};
+use crate::fields::{FieldElement, Fq, Fq2, Fr};
 use crate::u256::U256;
-
-// abits = "00100000000000000000000000000000000000010000101100020200101000020";
-const SM9_LOOP_COUNT: [u8; 65] = [
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 2, 0, 2, 0, 0, 1, 0, 1, 0, 0, 0, 0, 2,
-    0,
-];
 
 const SM9_P1X: [u8; 32] =
     hex!("93DE051D 62BF718F F5ED0704 487D01D6 E1E40869 09DC3280 E8C4E481 7C66DDDD");
@@ -28,24 +22,6 @@ const SM9_P2Y1: [u8; 32] =
     hex!("17509B09 2E845C12 66BA0D26 2CBEE6ED 0736A96F A347C8BD 856DC76B 84EBEB96");
 const SM9_P2Y0: [u8; 32] =
     hex!("A7CF28D5 19BE3DA6 5F317015 3D278FF2 47EFBA98 A71A0811 6215BBA5 C999A7C7");
-
-lazy_static::lazy_static! {
-
-    // PI1 = 0x3f23ea58e5720bdb 843c6cfa9c086749 47c5c86e0ddd04ed a91d8354377b698b
-    // PI2 = 0xf300000002a3a6f2 780272354f8b78f4 d5fc11967be65334
-    static ref SM9_PI1: U256 = U256::from([
-        0xa91d8354377b698b,
-        0x47c5c86e0ddd04ed,
-        0x843c6cfa9c086749,
-        0x3f23ea58e5720bdb
-        ]);
-    static ref SM9_PI2: U256 = U256::from([
-        0xd5fc11967be65334,
-        0x780272354f8b78f4,
-        0xf300000002a3a6f2,
-        0x0
-    ]);
-}
 
 pub trait GroupElement:
     Sized
@@ -61,6 +37,7 @@ pub trait GroupElement:
 {
     fn zero() -> Self;
     fn one() -> Self;
+    fn random<R: Rng>(rng: &mut R) -> Self;
     fn is_zero(&self) -> bool;
     fn double(&self) -> Self;
 }
@@ -78,9 +55,9 @@ pub trait GroupParams: Sized + fmt::Debug {
 
 #[repr(C)]
 pub struct G<P: GroupParams> {
-    x: P::Base,
-    y: P::Base,
-    z: P::Base,
+    pub(crate) x: P::Base,
+    pub(crate) y: P::Base,
+    pub(crate) z: P::Base,
 }
 
 impl<P: GroupParams> G<P> {
@@ -273,6 +250,10 @@ impl<P: GroupParams> GroupElement for G<P> {
         P::one()
     }
 
+    fn random<R: Rng>(rng: &mut R) -> Self {
+        P::one() * Fr::random(rng)
+    }
+
     fn is_zero(&self) -> bool {
         self.z.is_zero()
     }
@@ -450,7 +431,7 @@ impl GroupParams for G2Params {
     }
 
     fn coeff_b() -> Fq2 {
-        Fq2::one().scale(Fq::from_str("5").unwrap())
+        Fq2::one().scale(&Fq::from_str("5").unwrap())
     }
 
     fn check_order() -> bool {
@@ -463,7 +444,7 @@ pub type G2 = G<G2Params>;
 pub type AffineG2 = AffineG<G2Params>;
 
 impl G2 {
-    fn add_full(&self, q: &G2) -> Self {
+    pub fn add_full(&self, q: &G2) -> Self {
         if self.is_zero() {
             return *q;
         }
@@ -513,153 +494,6 @@ impl G2 {
             z: t7,
         }
     }
-
-    fn point_pi1(&self) -> Self {
-        G2 {
-            x: self.x.frobenius_map(1),
-            y: self.y.frobenius_map(1),
-            z: self.z.frobenius_map(1).scale(Fq::new(*SM9_PI1).unwrap()),
-        }
-    }
-
-    fn point_pi2(&self) -> Self {
-        G2 {
-            x: self.x,
-            y: self.y,
-            z: self.z.scale(Fq::new(*SM9_PI2).unwrap()),
-        }
-    }
-
-    fn eval_g_tangent(&self, q: &G1) -> (Fq12, Fq12) {
-        let mut num = Fq12::zero();
-        let mut den = Fq12::zero();
-
-        let t0 = self.z.squared();
-        let t1 = t0 * self.z;
-        let b1 = t1 * self.y;
-
-        let t2 = b1.scale(q.y);
-        let a1 = -t2;
-
-        let t1 = self.x.squared();
-        let t0 = t0 * t1;
-        let t0 = t0.scale(q.x);
-        let t0 = t0.tri();
-        let a4 = t0.div2();
-
-        let t1 = t1 * self.x;
-        let t1 = t1.tri();
-        let t1 = t1.div2();
-        let t0 = self.y.squared();
-        let a0 = t0 - t1;
-
-        num.c0 = Fq4::new(a0, a1);
-        num.c2 = Fq4::new(a4, Fq2::zero());
-        den.c0 = Fq4::new(Fq2::zero(), b1);
-
-        (num, den)
-    }
-
-    fn eval_g_line(&self, p: &G2, q: &G1) -> (Fq12, Fq12) {
-        let mut num = Fq12::zero();
-        let mut den = Fq12::zero();
-
-        let t0 = p.z.squared();
-        let t1 = t0 * self.x;
-        let t0 = t0 * p.z;
-
-        let t2 = self.z.squared();
-        let t3 = t2 * p.x;
-        let t2 = t2 * self.z;
-
-        let t2 = t2 * p.y;
-        let t1 = t1 - t3;
-        let t1 = t1 * self.z;
-
-        let t1 = t1 * p.z;
-        let t4 = t1 * t0;
-        let b1 = t4;
-
-        let t1 = t1 * p.y;
-        let t3 = t0 * self.y;
-        let t3 = t3 - t2;
-        let t0 = t0 * t3;
-        let t0 = t0.scale(q.x);
-        let a4 = t0;
-
-        let t3 = t3 * p.x;
-        let t3 = t3 * p.z;
-        let t1 = t1 - t3;
-        let a0 = t1;
-
-        let t2 = t4.scale(q.y);
-        let a1 = -t2;
-
-        num.c0 = Fq4::new(a0, a1);
-        num.c2 = Fq4::new(a4, Fq2::zero());
-        den.c0 = Fq4::new(Fq2::zero(), b1);
-
-        (num, den)
-    }
-
-    pub fn miller_loop(&self, p: &G1) -> Fq12 {
-        let mut t = *self;
-        let mut f_num = Fq12::one();
-        let mut f_den = Fq12::one();
-        let mut g_num;
-        let mut g_den;
-        let mut q1 = self.neg();
-
-        for i in SM9_LOOP_COUNT.iter() {
-            f_num = f_num.squared();
-            f_den = f_den.squared();
-            (g_num, g_den) = t.eval_g_tangent(p);
-            f_num = f_num * g_num;
-            f_den = f_den * g_den;
-
-            t = t.double();
-
-            if *i == 1 {
-                (g_num, g_den) = t.eval_g_line(self, p);
-                f_num = f_num * g_num;
-                f_den = f_den * g_den;
-                t = t.add_full(self);
-            } else if *i == 2 {
-                (g_num, g_den) = t.eval_g_line(&q1, p);
-                f_num = f_num * g_num;
-                f_den = f_den * g_den;
-                t = t.add_full(&q1);
-            }
-        }
-        q1 = self.point_pi1();
-        let q2 = -self.point_pi2();
-
-        (g_num, g_den) = t.eval_g_line(&q1, p);
-        f_num = f_num * g_num;
-        f_den = f_den * g_den;
-        t = t.add_full(&q1);
-
-        (g_num, g_den) = t.eval_g_line(&q2, p);
-        f_num = f_num * g_num;
-        f_den = f_den * g_den;
-        //    t = t + q2;
-
-        f_den = f_den.inverse().unwrap();
-        f_num * f_den
-    }
-}
-
-//
-// R-ate Pairing G2 x G1 -> GT
-//
-// P is a point of order r in G1. Q(x,y) is a point of order r in G2.
-// Note that Q is a point on the sextic twist of the curve over Fp^2, P(x,y) is a point on the
-// curve over the base field Fp
-// the curve is y^2 = x^3 + 5
-pub fn pairing(p: &G1, q: &G2) -> Fq12 {
-    q.miller_loop(p)
-        .final_exponentiation()
-        .expect("miller loop cannot produce zero")
 }
 
 /* ************************************************************************************************ */
@@ -667,6 +501,26 @@ pub fn pairing(p: &G1, q: &G2) -> Fq12 {
 mod tests {
     use super::*;
 
+    fn random_test_addition<G: GroupElement, R: Rng>(rng: &mut R) {
+        for _ in 0..50 {
+            let r1 = G::random(rng);
+            let r2 = G::random(rng);
+            let r3 = G::random(rng);
+
+            assert_eq!((r1 + r2) + r3, r1 + (r2 + r3));
+            assert!(((r1 + r2 + r3) - r2 - r3 - r1).is_zero());
+        }
+    }
+    fn random_test_doubling<G: GroupElement, R: Rng>(rng: &mut R) {
+        for _ in 0..50 {
+            let r1 = G::random(rng);
+            let r2 = G::random(rng);
+            let ti = Fr::from_str("2").unwrap().inverse().unwrap();
+
+            assert_eq!((r1 + r2) + r1, r1.double() + r2);
+            assert_eq!(r1, r1.double() * ti);
+        }
+    }
     pub fn group_trials<G: GroupElement>() {
         assert!(G::zero().is_zero());
         assert!((G::one() - G::one()).is_zero());
@@ -674,6 +528,17 @@ mod tests {
         assert!(G::zero().double().is_zero());
 
         assert!((G::one() * (-Fr::one()) + G::one()).is_zero());
+        use rand::{rngs::StdRng, SeedableRng};
+        let seed = [
+            0, 0, 0, 0, 0, 0, 64, 13, // 103245
+            0, 0, 0, 0, 0, 0, 176, 2, // 191922
+            0, 0, 0, 0, 0, 0, 0, 13, // 1293
+            0, 0, 0, 0, 0, 0, 96, 7u8, // 192103
+        ];
+        let mut rng = StdRng::from_seed(seed);
+
+        random_test_addition::<G, _>(&mut rng);
+        random_test_doubling::<G, _>(&mut rng);
     }
 
     fn test_projective_negation_and_subtraction<G: GroupElement>() {
@@ -1018,98 +883,5 @@ mod tests {
 
         assert!(G2::zero().y == Fq2::one());
         assert!((-G2::zero()).y == Fq2::one());
-    }
-
-    const G1_RAX: [u8; 32] =
-        hex!("7CBA5B19069EE66AA79D490413D11846B9BA76DD22567F809CF23B6D964BB265");
-    const G1_RAY: [u8; 32] =
-        hex!("A9760C99CB6F706343FED05637085864958D6C90902ABA7D405FBEDF7B781599");
-
-    const G2_DEBXY: [u8; 32] =
-        hex!("74CCC3AC9C383C60AF083972B96D05C75F12C8907D128A17ADAFBAB8C5A4ACF7");
-    const G2_DEBXX: [u8; 32] =
-        hex!("01092FF4DE89362670C21711B6DBE52DCD5F8E40C6654B3DECE573C2AB3D29B2");
-    const G2_DEBYY: [u8; 32] =
-        hex!("44B0294AA04290E1524FF3E3DA8CFD432BB64DE3A8040B5B88D1B5FC86A4EBC1");
-    const G2_DEBYX: [u8; 32] =
-        hex!("8CFC48FB4FF37F1E27727464F3C34E2153861AD08E972D1625FC1A7BD18D5539");
-
-    const PAIR2C11: [u8; 32] =
-        hex!("28542FB6954C84BE6A5F2988A31CB6817BA0781966FA83D9673A9577D3C0C134");
-    const PAIR2C10: [u8; 32] =
-        hex!("5E27C19FC02ED9AE37F5BB7BE9C03C2B87DE027539CCF03E6B7D36DE4AB45CD1");
-    const PAIR2C01: [u8; 32] =
-        hex!("A1ABFCD30C57DB0F1A838E3A8F2BF823479C978BD137230506EA6249C891049E");
-    const PAIR2C00: [u8; 32] =
-        hex!("3497477913AB89F5E2960F382B1B5C8EE09DE0FA498BA95C4409D630D343DA40");
-
-    const PAIR2B11: [u8; 32] =
-        hex!("4FEC93472DA33A4DB6599095C0CF895E3A7B993EE5E4EBE3B9AB7D7D5FF2A3D1");
-    const PAIR2B10: [u8; 32] =
-        hex!("647BA154C3E8E185DFC33657C1F128D480F3F7E3F16801208029E19434C733BB");
-    const PAIR2B01: [u8; 32] =
-        hex!("73F21693C66FC23724DB26380C526223C705DAF6BA18B763A68623C86A632B05");
-    const PAIR2B00: [u8; 32] =
-        hex!("0F63A071A6D62EA45B59A1942DFF5335D1A232C9C5664FAD5D6AF54C11418B0D");
-
-    const PAIR2A11: [u8; 32] =
-        hex!("8C8E9D8D905780D50E779067F2C4B1C8F83A8B59D735BB52AF35F56730BDE5AC");
-    const PAIR2A10: [u8; 32] =
-        hex!("861CCD9978617267CE4AD9789F77739E62F2E57B48C2FF26D2E90A79A1D86B93");
-    const PAIR2A01: [u8; 32] =
-        hex!("9B1CA08F64712E33AEDA3F44BD6CB633E0F722211E344D73EC9BBEBC92142765");
-    const PAIR2A00: [u8; 32] =
-        hex!("6BA584CE742A2A3AB41C15D3EF94EDEB8EF74A2BDCDAAECC09ABA567981F6437");
-
-    #[test]
-    fn test_pairing() {
-        let p1 = G1::new(
-            Fq::from_slice(&G1_RAX).unwrap(),
-            Fq::from_slice(&G1_RAY).unwrap(),
-            Fq::one(),
-        );
-
-        let x = Fq2::new(
-            Fq::from_slice(&G2_DEBXX).unwrap(),
-            Fq::from_slice(&G2_DEBXY).unwrap(),
-        );
-        let y = Fq2::new(
-            Fq::from_slice(&G2_DEBYX).unwrap(),
-            Fq::from_slice(&G2_DEBYY).unwrap(),
-        );
-        let p2 = G2::new(x, y, Fq2::one());
-
-        let r0 = Fq2::new(
-            Fq::from_slice(&PAIR2A00).unwrap(),
-            Fq::from_slice(&PAIR2A01).unwrap(),
-        );
-        let r1 = Fq2::new(
-            Fq::from_slice(&PAIR2A10).unwrap(),
-            Fq::from_slice(&PAIR2A11).unwrap(),
-        );
-        let a = Fq4::new(r0, r1);
-        let r0 = Fq2::new(
-            Fq::from_slice(&PAIR2B00).unwrap(),
-            Fq::from_slice(&PAIR2B01).unwrap(),
-        );
-        let r1 = Fq2::new(
-            Fq::from_slice(&PAIR2B10).unwrap(),
-            Fq::from_slice(&PAIR2B11).unwrap(),
-        );
-        let b = Fq4::new(r0, r1);
-        let r0 = Fq2::new(
-            Fq::from_slice(&PAIR2C00).unwrap(),
-            Fq::from_slice(&PAIR2C01).unwrap(),
-        );
-        let r1 = Fq2::new(
-            Fq::from_slice(&PAIR2C10).unwrap(),
-            Fq::from_slice(&PAIR2C11).unwrap(),
-        );
-        let c = Fq4::new(r0, r1);
-        let r = Fq12::new(a, b, c);
-
-        let alice = pairing(&p1, &p2);
-
-        assert_eq!(alice, r);
     }
 }
