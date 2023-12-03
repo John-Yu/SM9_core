@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use core::ops::Neg;
 
-use crate::fields::{FieldElement, Fq, Fq2, Fq4, Fq12};
+use crate::fields::{FieldElement, Fq, Fq12, Fq2, Fq4};
 use crate::groups::{GroupElement, G1, G2};
 use crate::u256::U256;
 
@@ -62,29 +62,7 @@ impl Fq12 {
         self.final_exponentiation_first_chunk()
             .map(|a| a.final_exponentiation_last_chunk())
     }
-    // Chung-Hasan SQR3 - actually calculate 2x^2 !
-    // Slightly dangerous - but works as will be raised to p^{k/2}-1
-    // which wipes out the 2.
-    pub fn squared_miller(&self) -> Self {
-        if *self == Self::one() {
-            return *self;
-        }
-        let s0 = self.c0.squared(); // a0^2    = S0
-        let s1 = (self.c0 + self.c1 + self.c2).squared(); // (a0+a1+a2)^2  =S1
-        let s2 = (self.c0 - self.c1 + self.c2).squared(); // (a0-a1+a2)^2  =S2
-        let bc = self.c1 * self.c2;
-        let s3 = bc + bc; // 2a1.a2  = S3
-        let s4 = self.c2.squared(); // a2^2    = S4
-        let s33 = s3 + s3;
-        let s00 = s0 + s0;
-        let s44 = s4 + s4;
 
-        Fq12 {
-            c0: s00 + s33.mul_by_nonresidue(),
-            c1: s1 - s2 - s33 + s44.mul_by_nonresidue(),
-            c2: s1 + s2 - s00 - s44,
-        }
-    }
     //final_exp
     fn final_exp_last_chunk(&self) -> Fq12 {
         let mut t1 = self.pow(*SM9_S).inverse().unwrap();
@@ -96,10 +74,10 @@ impl Fq12 {
 
         x0 *= *self * t0;
         x0 = x0.frobenius_map(1);
-        t1 = t1.pow(*SM9_S).inverse().unwrap();
+        let x5 = t1.pow(*SM9_S);
+        t1 = x5.inverse().unwrap();
         x4 *= t1.frobenius_map(1).inverse().unwrap();
         let x2 = t1.frobenius_map(2);
-        let x5 = t1.inverse().unwrap();
 
         t0 = t1.pow(*SM9_S).inverse().unwrap();
         t1 = t0.frobenius_map(1);
@@ -222,20 +200,20 @@ impl G2 {
             f_num = f_num.squared();
             f_den = f_den.squared();
             (g_num, g_den) = t.eval_g_tangent(p);
-            f_num = f_num * g_num;
-            f_den = f_den * g_den;
+            f_num *= g_num;
+            f_den *= g_den;
 
             t = t.double();
 
             if *i == 1 {
                 (g_num, g_den) = t.eval_g_line(self, p);
-                f_num = f_num * g_num;
-                f_den = f_den * g_den;
+                f_num *= g_num;
+                f_den *= g_den;
                 t = t.add_full(self);
             } else if *i == 2 {
                 (g_num, g_den) = t.eval_g_line(&q1, p);
-                f_num = f_num * g_num;
-                f_den = f_den * g_den;
+                f_num *= g_num;
+                f_den *= g_den;
                 t = t.add_full(&q1);
             }
         }
@@ -243,13 +221,13 @@ impl G2 {
         let q2 = -self.point_pi2();
 
         (g_num, g_den) = t.eval_g_line(&q1, p);
-        f_num = f_num * g_num;
-        f_den = f_den * g_den;
+        f_num *= g_num;
+        f_den *= g_den;
         t = t.add_full(&q1);
 
         (g_num, g_den) = t.eval_g_line(&q2, p);
-        f_num = f_num * g_num;
-        f_den = f_den * g_den;
+        f_num *= g_num;
+        f_den *= g_den;
 
         f_den = f_den.inverse().unwrap();
         f_num * f_den
@@ -267,12 +245,13 @@ impl G2 {
         )
     }
     fn g_line(&mut self, g2: &G2) -> (Fq2, Fq2, Fq2) {
-        let mut lam = self.z().squared();
-        lam = (lam * self.z) * g2.y - self.y;
+        let lam = self.z().squared();
+        let c2 = self.y - (lam * self.z) * g2.y;
         *self = self.add_full(g2);
-        let z3 = self.z;
+        let c0 = self.z;
+        let c1 = -c2 * g2.x - c0 * g2.y;
 
-        (z3, lam * g2.x - z3 * g2.y, -lam)
+        (c0, c1, c2)
     }
     fn g_tangent(&mut self) -> (Fq2, Fq2, Fq2) {
         let mut lam = self.x().squared();
@@ -283,9 +262,9 @@ impl G2 {
         let c1 = lam * self.x - extra;
         let c2 = -(zz * lam);
         *self = self.double();
-        let z3 = self.z;
+        let c0 = self.z * zz;
 
-        (z3 * zz, c1, c2)
+        (c0, c1, c2)
     }
 }
 //
@@ -308,9 +287,9 @@ pub fn pairing(p: &G1, q: &G2) -> Fq12 {
 
 #[derive(Clone, Debug)]
 /// This structure contains cached computations pertaining to a G2
-/// element as part of the pairing function (specifically, the Miller loop) and
-/// so should be computed whenever a G2 element is being used in
-/// multiple pairings or is otherwise known in advance.
+/// element as part of the pairing function (specifically, the Miller loop)
+// and so should be computed whenever a G2 element is being used in
+// multiple pairings or is otherwise known in advance.
 pub struct G2Prepared {
     coeffs: Vec<(Fq2, Fq2, Fq2)>,
 }
@@ -341,47 +320,36 @@ impl From<G2> for G2Prepared {
     }
 }
 impl G2Prepared {
+    fn get_fq12(&self, c: &(Fq2, Fq2, Fq2), t1: &Fq2, x: &Fq) -> Fq12 {
+        Fq12 {
+            c0: Fq4::new(c.0 * *t1, c.1),
+            c1: Fq4::zero(),
+            c2: Fq4::new(Fq2::zero(), c.2.scale(x)),
+        }
+    }
     pub fn miller_loop(&self, g1: &G1) -> Fq12 {
         let mut f = Fq12::one();
         let t1 = Fq2::new(g1.y, Fq::zero()).mul_by_nonresidue();
-
         let mut idx = 0;
 
         for i in (0..65).rev() {
             let c = &self.coeffs[idx];
             idx += 1;
             f = f.squared();
-            f *= Fq12 {
-                c0: Fq4::new(c.0 * t1, c.1),
-                c1: Fq4::zero(),
-                c2: Fq4::new(Fq2::zero(), c.2.scale(g1.x())),
-            };
+            f *= self.get_fq12(c, &t1, g1.x());
 
             if bit(SM9_LOOP_N, i) {
                 let c = &self.coeffs[idx];
                 idx += 1;
-                f *= Fq12 {
-                    c0: Fq4::new(c.0 * t1, c.1),
-                    c1: Fq4::zero(),
-                    c2: Fq4::new(Fq2::zero(), c.2.scale(g1.x())),
-                };
+                f *= self.get_fq12(c, &t1, g1.x());
             }
         }
 
-        let c = &self.coeffs[idx];
-        idx += 1;
-        f *= Fq12 {
-            c0: Fq4::new(c.0 * t1, c.1),
-            c1: Fq4::zero(),
-            c2: Fq4::new(Fq2::zero(), c.2.scale(g1.x())),
-        };
-
-        let c = &self.coeffs[idx];
-        f *= Fq12 {
-            c0: Fq4::new(c.0 * t1, c.1),
-            c1: Fq4::zero(),
-            c2: Fq4::new(Fq2::zero(), c.2.scale(g1.x())),
-        };
+        for _ in 0..2 {
+            let c = &self.coeffs[idx];
+            idx += 1;
+            f *= self.get_fq12(c, &t1, g1.x());
+        }
 
         f
     }
@@ -389,9 +357,9 @@ impl G2Prepared {
 
 pub fn fast_pairing(g1: &G1, g2: &G2) -> Fq12 {
     let g2p = G2Prepared::from(*g2);
-    let res = g2p.miller_loop(g1);
-
-    res.final_exp().expect("miller loop cannot produce zero")
+    g2p.miller_loop(g1)
+        .final_exp()
+        .expect("miller loop cannot produce zero")
 }
 
 #[inline]

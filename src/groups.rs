@@ -62,7 +62,7 @@ pub struct G<P: GroupParams> {
 
 impl<P: GroupParams> G<P> {
     pub fn new(x: P::Base, y: P::Base, z: P::Base) -> Self {
-        G { x: x, y: y, z: z }
+        G { x, y, z }
     }
 
     pub fn x(&self) -> &P::Base {
@@ -107,8 +107,8 @@ impl<P: GroupParams> AffineG<P> {
         if y.squared() == (x.squared() * x) + P::coeff_b() {
             if P::check_order() {
                 let p: G<P> = G {
-                    x: x,
-                    y: y,
+                    x,
+                    y,
                     z: P::Base::one(),
                 };
 
@@ -117,7 +117,7 @@ impl<P: GroupParams> AffineG<P> {
                 }
             }
 
-            Ok(AffineG { x: x, y: y })
+            Ok(AffineG { x, y })
         } else {
             Err(Error::NotOnCurve)
         }
@@ -156,11 +156,7 @@ impl<P: GroupParams> fmt::Debug for G<P> {
 
 impl<P: GroupParams> Clone for G<P> {
     fn clone(&self) -> Self {
-        G {
-            x: self.x,
-            y: self.y,
-            z: self.z,
-        }
+        *self
     }
 }
 
@@ -168,10 +164,7 @@ impl<P: GroupParams> Copy for G<P> {}
 
 impl<P: GroupParams> Clone for AffineG<P> {
     fn clone(&self) -> Self {
-        AffineG {
-            x: self.x,
-            y: self.y,
-        }
+        *self
     }
 }
 
@@ -201,13 +194,13 @@ impl<P: GroupParams> PartialEq for G<P> {
             return false;
         }
 
-        return true;
+        true
     }
 }
 impl<P: GroupParams> Eq for G<P> {}
 
 impl<P: GroupParams> G<P> {
-    pub fn to_affine(&self) -> Option<AffineG<P>> {
+    pub fn to_affine(self) -> Option<AffineG<P>> {
         if self.z.is_zero() {
             None
         } else if self.z == P::Base::one() {
@@ -228,7 +221,7 @@ impl<P: GroupParams> G<P> {
 }
 
 impl<P: GroupParams> AffineG<P> {
-    pub fn to_jacobian(&self) -> G<P> {
+    pub fn to_jacobian(self) -> G<P> {
         G {
             x: self.x,
             y: self.y,
@@ -279,10 +272,9 @@ impl<P: GroupParams> GroupElement for G<P> {
         }
     }
 }
-
 impl<P: GroupParams> Mul<Fr> for G<P> {
     type Output = G<P>;
-
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn mul(self, other: Fr) -> G<P> {
         let mut res = G::zero();
         let mut found_one = false;

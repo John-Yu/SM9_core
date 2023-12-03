@@ -9,7 +9,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let g = G1::one() * a;
     let h = G2::one() * b;
     let g2_precomputed = G2Prepared::from(h);
-    
+
     c.bench_function("pairing", |b| {
         b.iter(|| pairing(black_box(g), black_box(h)))
     });

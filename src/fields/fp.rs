@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
-use core::ops::{Add, Mul, Neg, Sub};
 use core::fmt;
+use core::ops::{Add, Mul, Neg, Sub};
 use rand::Rng;
 
-use crate::fields::FieldElement;
+use crate::fields::{FieldElement, FQ, FQ_MINUS3_DIV4};
 use crate::u256::U256;
 use crate::u512::U512;
 
@@ -71,8 +71,8 @@ macro_rules! field_impl {
             }
 
             /// Converts an element of `Fp` into a byte representation in big-endian byte order.
-            pub fn to_slice(&self) -> [u8;32] {
-                let mut res = [0u8;32];
+            pub fn to_slice(self) -> [u8; 32] {
+                let mut res = [0u8; 32];
                 self.0.to_big_endian(&mut res[..]).unwrap();
                 res
             }
@@ -91,12 +91,6 @@ macro_rules! field_impl {
             #[allow(dead_code)]
             pub fn modulus() -> U256 {
                 U256::from($modulus)
-            }
-
-            #[inline]
-            #[allow(dead_code)]
-            pub fn inv(&self) -> u128 {
-                $inv
             }
 
             pub fn raw(&self) -> &U256 {
@@ -190,7 +184,6 @@ macro_rules! field_impl {
                 write!(f, "Fp({:?})", U256::from(*self))
             }
         }
-
     };
 }
 
@@ -260,7 +253,7 @@ impl Fq {
         let a0 = a1 * (a1a);
 
         let mut am1 = *FQ;
-        am1.sub(&1.into(), &*FQ);
+        am1.sub(&1.into(), &FQ);
 
         if a0 == Fq::new(am1).unwrap() {
             None
@@ -278,28 +271,7 @@ impl Fq {
     }
 
     pub fn div2(mut self) -> Self {
-        self.0.div2(&*FQ);
+        self.0.div2(&FQ);
         self
     }
-}
-
-lazy_static::lazy_static! {
-
-    static ref FQ: U256 = U256::from([
-        0xE56F9B27E351457D,
-        0x21F2934B1A7AEEDB,
-        0xD603AB4FF58EC745,
-        0xB640000002A3A6F1
-    ]);
-
-    pub static ref FQ_MINUS3_DIV4: Fq =
-        Fq::new(3.into()).expect("3 is a valid field element and static; qed").neg() *
-        Fq::new(4.into()).expect("4 is a valid field element and static; qed").inverse()
-            .expect("4 has inverse in Fq and is static; qed");
- 
-    static ref FQ_MINUS1_DIV2: Fq =
-        Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
-        Fq::new(2.into()).expect("2 is a valid field element and static; qed").inverse()
-            .expect("2 has inverse in Fq and is static; qed");
-
 }

@@ -62,7 +62,7 @@ impl Fq12 {
     }
     /// Converts an element into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 384] {
+    pub fn to_slice(self) -> [u8; 384] {
         let mut res = [0u8; 384];
         let b2 = self.c2.to_slice();
         let b1 = self.c1.to_slice();
@@ -123,14 +123,14 @@ impl FieldElement for Fq12 {
         let c0 = self.c0.squared() - self.c1 * self.c2.mul_by_nonresidue();
         let c1 = self.c2.squared().mul_by_nonresidue() - self.c0 * self.c1;
         let c2 = self.c1.squared() - self.c0 * self.c2;
-        match ((self.c2 * c1 + self.c1 * c2).mul_by_nonresidue() + self.c0 * c0).inverse() {
-            Some(t) => Some(Fq12 {
+
+        ((self.c2 * c1 + self.c1 * c2).mul_by_nonresidue() + self.c0 * c0)
+            .inverse()
+            .map(|t| Fq12 {
                 c0: t * c0,
                 c1: t * c1,
                 c2: t * c2,
-            }),
-            None => None,
-        }
+            })
     }
 }
 

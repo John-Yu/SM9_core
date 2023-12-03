@@ -3,7 +3,7 @@
 use core::ops::{Add, Mul, Neg, Sub};
 use rand::Rng;
 
-use crate::fields::{FieldElement, Fq};
+use crate::fields::{FieldElement, Fq, FQ, FQ_MINUS1_DIV2, FQ_MINUS3_DIV4};
 use crate::u256::U256;
 use crate::u512::U512;
 
@@ -122,8 +122,8 @@ impl Fq2 {
             Some(b * a1a)
         }
     }
-
-    pub fn to_u512(&self) -> U512 {
+    /// Converts an element of `Fq2` into a U512
+    pub fn to_u512(self) -> U512 {
         let c0: U256 = (*self.real()).into();
         let c1: U256 = (*self.imaginary()).into();
 
@@ -131,10 +131,10 @@ impl Fq2 {
     }
     /// Converts an element of `Fq2` into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 64] {
+    pub fn to_slice(self) -> [u8; 64] {
         let mut res = [0u8; 64];
-        let u1:U256 = self.c1.into();
-        let u0:U256 = self.c0.into();
+        let u1: U256 = self.c1.into();
+        let u0: U256 = self.c0.into();
         u1.to_big_endian(&mut res[..32]).unwrap();
         u0.to_big_endian(&mut res[32..]).unwrap();
         res
@@ -188,13 +188,12 @@ impl FieldElement for Fq2 {
         // over Barreto–Naehrig Curves"; Algorithm 8
 
         //  t = (c[0]^2 + 2 * c[1]^2)^-1
-        match (self.c0.squared() + self.c1.squared() + self.c1.squared()).inverse() {
-            Some(t) => Some(Fq2 {
+        (self.c0.squared() + self.c1.squared() + self.c1.squared())
+            .inverse()
+            .map(|t| Fq2 {
                 c0: self.c0 * t,
                 c1: -(self.c1 * t),
-            }),
-            None => None,
-        }
+            })
     }
 }
 
@@ -249,23 +248,4 @@ impl Neg for Fq2 {
             c1: -self.c1,
         }
     }
-}
-
-lazy_static::lazy_static! {
-    static ref FQ: U256 = U256::from([
-        0xE56F9B27E351457D,
-        0x21F2934B1A7AEEDB,
-        0xD603AB4FF58EC745,
-        0xB640000002A3A6F1
-    ]);
-
-    static ref FQ_MINUS3_DIV4: Fq =
-        Fq::new(3.into()).expect("3 is a valid field element and static; qed").neg() *
-        Fq::new(4.into()).expect("4 is a valid field element and static; qed").inverse()
-        .expect("4 has inverse in Fq and is static; qed");
-
-    static ref FQ_MINUS1_DIV2: Fq =
-        Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
-        Fq::new(2.into()).expect("2 is a valid field element and static; qed").inverse()
-            .expect("2 has inverse in Fq and is static; qed");
 }

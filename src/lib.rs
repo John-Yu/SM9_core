@@ -29,8 +29,6 @@ use rand::Rng;
 
 use crate::fields::FieldElement;
 use crate::groups::{G1Params, G2Params, GroupElement, GroupParams};
-/// This structure contains cached computations pertaining to a G2
-/// element as part of the pairing function
 pub use crate::pairings::G2Prepared;
 use crate::u256::U256;
 use crate::u512::U512;
@@ -65,7 +63,11 @@ use crate::u512::U512;
 /// "6A814AAF 475F128A EF43A128 E37F8015 4AE6CB92 CAD7D150 1BAE30F7 50B3A9BD"
 /// "1F96B08E 97997363 91131470 5BFB9A9D BB97F755 53EC90FB B2DDAE53 C8F68E42"
 /// );
-/// assert_eq!(r0, r1)
+/// assert_eq!(r0, r1);
+/// // test  fast_pairing
+/// let g1 = fast_pairing(G1::one(), pub_s).pow(r);
+/// let r1 = g1.to_slice();
+/// assert_eq!(r0, r1);
 /// ```
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -87,13 +89,14 @@ impl Fr {
         Fr(self.0.pow(exp.0))
     }
     /// Attempts to convert a string base 10 to a element of `Fr`
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
-        fields::Fr::from_str(s).map(|e| Fr(e))
+        fields::Fr::from_str(s).map(Fr)
     }
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
     pub fn inverse(&self) -> Option<Self> {
-        self.0.inverse().map(|e| Fr(e))
+        self.0.inverse().map(Fr)
     }
     /// Get a random element
     pub fn random<R: Rng>(rng: &mut R) -> Self {
@@ -112,15 +115,15 @@ impl Fr {
     pub fn from_slice(slice: &[u8]) -> Result<Self, FieldError> {
         U256::from_slice(slice)
             .map_err(|_| FieldError::InvalidSliceLength) // todo: maybe more sensful error handling
-            .map(|x| Fr::new_mul_factor(x))
+            .map(Fr::new_mul_factor)
     }
     /// Converts an element of `Fr` into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 32] {
+    pub fn to_slice(self) -> [u8; 32] {
         self.0.to_slice()
     }
     pub fn new(val: U256) -> Option<Self> {
-        fields::Fr::new(val).map(|x| Fr(x))
+        fields::Fr::new(val).map(Fr)
     }
     pub fn new_mul_factor(val: U256) -> Self {
         Fr(fields::Fr::new_mul_factor(val))
@@ -212,23 +215,24 @@ impl Fq {
         Fq(self.0.pow(exp.0))
     }
     /// Attempts to convert a string base 10 to a element of `Fq`
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
-        fields::Fq::from_str(s).map(|e| Fq(e))
+        fields::Fq::from_str(s).map(Fq)
     }
     /// Attempts to convert a big-endian byte representation of
     /// a field element into an element of `Fq`,
     pub fn from_slice(hex: &[u8]) -> Option<Self> {
-        fields::Fq::from_slice(hex).map(|e| Fq(e))
+        fields::Fq::from_slice(hex).map(Fq)
     }
     /// Converts an element of `Fq` into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 32] {
+    pub fn to_slice(self) -> [u8; 32] {
         self.0.to_slice()
     }
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
     pub fn inverse(&self) -> Option<Self> {
-        self.0.inverse().map(|e| Fq(e))
+        self.0.inverse().map(Fq)
     }
     pub fn is_zero(&self) -> bool {
         self.0.is_zero()
@@ -238,7 +242,7 @@ impl Fq {
     }
     /// Converts an element into a slice of bytes in
     /// big-endian byte order.
-    pub fn to_big_endian(&self, slice: &mut [u8]) -> Result<(), FieldError> {
+    pub fn to_big_endian(self, slice: &mut [u8]) -> Result<(), FieldError> {
         self.into_u256()
             .to_big_endian(slice)
             .map_err(|_| FieldError::InvalidSliceLength)
@@ -345,7 +349,7 @@ impl Fq2 {
     }
     /// Converts an element into a slice of bytes in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 64] {
+    pub fn to_slice(self) -> [u8; 64] {
         self.0.to_slice()
     }
 }
@@ -405,7 +409,7 @@ pub trait Group:
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct G1(groups::G1);
+pub struct G1(pub groups::G1);
 
 impl G1 {
     pub fn new(x: Fq, y: Fq, z: Fq) -> Self {
@@ -413,7 +417,7 @@ impl G1 {
     }
 
     pub fn x(&self) -> Fq {
-        Fq(self.0.x().clone())
+        Fq(*self.0.x())
     }
 
     pub fn set_x(&mut self, x: Fq) {
@@ -421,7 +425,7 @@ impl G1 {
     }
 
     pub fn y(&self) -> Fq {
-        Fq(self.0.y().clone())
+        Fq(*self.0.y())
     }
 
     pub fn set_y(&mut self, y: Fq) {
@@ -429,7 +433,7 @@ impl G1 {
     }
 
     pub fn z(&self) -> Fq {
-        Fq(self.0.z().clone())
+        Fq(*self.0.z())
     }
 
     pub fn set_z(&mut self, z: Fq) {
@@ -438,30 +442,6 @@ impl G1 {
 
     pub fn b() -> Fq {
         Fq(G1Params::coeff_b())
-    }
-
-    pub fn from_compressed(bytes: &[u8]) -> Result<Self, CurveError> {
-        if bytes.len() != 33 {
-            return Err(CurveError::InvalidEncoding);
-        }
-
-        let sign = bytes[0];
-        let fq = Fq::from_slice(&bytes[1..]).unwrap();
-        let x = fq;
-        let y_squared = (fq * fq * fq) + Self::b();
-
-        let mut y = y_squared.sqrt().ok_or(CurveError::NotMember)?;
-
-        if sign == 2 && y.into_u256().get_bit(0).expect("bit 0 always exist; qed") {
-            y = y.neg();
-        } else if sign == 3 && !y.into_u256().get_bit(0).expect("bit 0 always exist; qed") {
-            y = y.neg();
-        } else if sign != 3 && sign != 2 {
-            return Err(CurveError::InvalidEncoding);
-        }
-        AffineG1::new(x, y)
-            .map_err(|_| CurveError::NotMember)
-            .map(Into::into)
     }
 }
 
@@ -529,7 +509,7 @@ impl G2 {
     }
 
     pub fn x(&self) -> Fq2 {
-        Fq2(self.0.x().clone())
+        Fq2(*self.0.x())
     }
 
     pub fn set_x(&mut self, x: Fq2) {
@@ -537,7 +517,7 @@ impl G2 {
     }
 
     pub fn y(&self) -> Fq2 {
-        Fq2(self.0.y().clone())
+        Fq2(*self.0.y())
     }
 
     pub fn set_y(&mut self, y: Fq2) {
@@ -545,7 +525,7 @@ impl G2 {
     }
 
     pub fn z(&self) -> Fq2 {
-        Fq2(self.0.z().clone())
+        Fq2(*self.0.z())
     }
 
     pub fn set_z(&mut self, z: Fq2) {
@@ -662,7 +642,7 @@ impl Gt {
     }
     /// Converts an element into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 384] {
+    pub fn to_slice(self) -> [u8; 384] {
         self.0.to_slice()
     }
 }
@@ -685,7 +665,7 @@ impl AffineG1 {
     }
 
     pub fn x(&self) -> Fq {
-        Fq(self.0.x().clone())
+        Fq(*self.0.x())
     }
 
     pub fn set_x(&mut self, x: Fq) {
@@ -693,7 +673,7 @@ impl AffineG1 {
     }
 
     pub fn y(&self) -> Fq {
-        Fq(self.0.y().clone())
+        Fq(*self.0.y())
     }
 
     pub fn set_y(&mut self, y: Fq) {
@@ -701,7 +681,7 @@ impl AffineG1 {
     }
 
     pub fn from_jacobian(g1: G1) -> Option<Self> {
-        g1.0.to_affine().map(|x| AffineG1(x))
+        g1.0.to_affine().map(AffineG1)
     }
 }
 
@@ -721,7 +701,7 @@ impl AffineG2 {
     }
 
     pub fn x(&self) -> Fq2 {
-        Fq2(self.0.x().clone())
+        Fq2(*self.0.x())
     }
 
     pub fn set_x(&mut self, x: Fq2) {
@@ -729,7 +709,7 @@ impl AffineG2 {
     }
 
     pub fn y(&self) -> Fq2 {
-        Fq2(self.0.y().clone())
+        Fq2(*self.0.y())
     }
 
     pub fn set_y(&mut self, y: Fq2) {
@@ -737,7 +717,7 @@ impl AffineG2 {
     }
 
     pub fn from_jacobian(g2: G2) -> Option<Self> {
-        g2.0.to_affine().map(|x| AffineG2(x))
+        g2.0.to_affine().map(AffineG2)
     }
 }
 
@@ -767,7 +747,7 @@ impl G2Prepared {
 pub fn pairing(p: G1, q: G2) -> Gt {
     Gt(pairings::pairing(&p.0, &q.0))
 }
-/// compute R-ate Pairing G2 x G1 -> GT 
+/// compute R-ate Pairing G2 x G1 -> GT
 pub fn fast_pairing(mut p: G1, mut q: G2) -> Gt {
     p.normalize();
     q.normalize();

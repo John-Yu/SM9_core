@@ -45,7 +45,7 @@ pub fn adc(a: u128, b: u128, carry: &mut u128) -> u128 {
 pub fn add_nocarry(a: &mut [u128; 2], b: &[u128; 2]) {
     let mut carry = 0;
 
-    for (a, b) in a.into_iter().zip(b.iter()) {
+    for (a, b) in a.iter_mut().zip(b.iter()) {
         *a = adc(*a, *b, &mut carry);
     }
 
@@ -57,7 +57,7 @@ pub fn add_nocarry(a: &mut [u128; 2], b: &[u128; 2]) {
 pub fn add_carry(a: &mut [u128; 2], b: &[u128; 2]) -> bool {
     let mut carry = 0;
 
-    for (a, b) in a.into_iter().zip(b.iter()) {
+    for (a, b) in a.iter_mut().zip(b.iter()) {
         *a = adc(*a, *b, &mut carry);
     }
 
@@ -80,7 +80,7 @@ pub fn sub_noborrow(a: &mut [u128; 2], b: &[u128; 2]) {
 
     let mut borrow = 0;
 
-    for (a, b) in a.into_iter().zip(b.iter()) {
+    for (a, b) in a.iter_mut().zip(b.iter()) {
         *a = sbb(*a, *b, &mut borrow);
     }
 

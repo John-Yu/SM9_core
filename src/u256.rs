@@ -45,7 +45,7 @@ impl U256 {
         Ok(U256(n))
     }
     /// Converts a U256 into a slice of bytes (big endian)
-    pub fn to_big_endian(&self, s: &mut [u8]) -> Result<(), Error> {
+    pub fn to_big_endian(self, s: &mut [u8]) -> Result<(), Error> {
         if s.len() != 32 {
             return Err(Error::InvalidLength {
                 expected: 32,
@@ -74,7 +74,7 @@ impl U256 {
     pub fn random<R: Rng>(rng: &mut R, modulo: &U256) -> U256 {
         U512::random(rng).divrem(modulo).1
     }
-
+    /// Returns true if element is zero.
     pub fn is_zero(&self) -> bool {
         self.0[0] == 0 && self.0[1] == 0
     }
@@ -113,12 +113,12 @@ impl U256 {
             0xFFFFFFFFFFFFFFFF,
             0xFFFFFFFFFFFFFFFF,
             0xFFFFFFFFFFFFFFFF,
-            0xFFFFFFFFFFFFFFFF
+            0xFFFFFFFFFFFFFFFF,
         ]);
-        // TODO: need  self + 2^256 < modulo * 2 
+        // TODO: need  self + 2^256 < modulo * 2
         sub_noborrow(&mut a.0, &modulo.0);
-        add_nocarry(&mut self.0, &U256::one().0); //&[1,0]); 
-        add_nocarry(&mut self.0, &a.0);   
+        add_nocarry(&mut self.0, &U256::one().0); //&[1,0]);
+        add_nocarry(&mut self.0, &a.0);
     }
 
     /// Add `other` to `self` (mod `modulo`)
@@ -140,13 +140,12 @@ impl U256 {
             let mut a = *modulo;
             sub_noborrow(&mut a.0, &other.0);
             add_nocarry(&mut self.0, &a.0);
-        }
-        else {
+        } else {
             sub_noborrow(&mut self.0, &other.0);
         }
     }
 
-    // a = a * 2 (mod `modulo`)
+    /// a = a * 2 (mod `modulo`)
     pub fn mul2(&mut self, modulo: &U256) {
         if mul2(&mut self.0) {
             // has carry
@@ -154,10 +153,10 @@ impl U256 {
         }
     }
 
-    // a = a / 2 (mod `modulo`)
+    /// a = a / 2 (mod `modulo`)
     pub fn div2(&mut self, modulo: &U256) {
         let mut carry = false;
-        if  self.is_even() == false {
+        if !self.is_even() {
             carry = add_carry(&mut self.0, &modulo.0);
         }
         div2(&mut self.0);
@@ -234,7 +233,7 @@ impl U256 {
     /// Return an Iterator<Item=bool> over all bits from
     /// MSB to LSB.
     pub fn bits(&self) -> BitIterator {
-        BitIterator { int: &self, n: 256 }
+        BitIterator { int: self, n: 256 }
     }
 }
 
@@ -251,7 +250,6 @@ impl<'a> Iterator for BitIterator<'a> {
             None
         } else {
             self.n -= 1;
-
             self.int.get_bit(self.n)
         }
     }
@@ -261,14 +259,14 @@ impl Ord for U256 {
     #[inline]
     fn cmp(&self, other: &U256) -> Ordering {
         for (a, b) in self.0.iter().zip(other.0.iter()).rev() {
-            if *a < *b {
-                return Ordering::Less;
-            } else if *a > *b {
-                return Ordering::Greater;
+            match a.cmp(b) {
+                Ordering::Greater => return Ordering::Greater,
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
             }
         }
 
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 
@@ -279,7 +277,7 @@ impl PartialOrd for U256 {
     }
 }
 
-// 
+//
 impl fmt::Debug for U256 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "U256({:032X}{:032X})", self.0[1], self.0[0])
@@ -290,4 +288,3 @@ impl fmt::Debug for U256 {
 pub enum Error {
     InvalidLength { expected: usize, actual: usize },
 }
-

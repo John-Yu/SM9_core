@@ -137,14 +137,14 @@ impl Ord for U512 {
     #[inline]
     fn cmp(&self, other: &U512) -> Ordering {
         for (a, b) in self.0.iter().zip(other.0.iter()).rev() {
-            if *a < *b {
-                return Ordering::Less;
-            } else if *a > *b {
-                return Ordering::Greater;
+            match a.cmp(b) {
+                Ordering::Greater => return Ordering::Greater,
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
             }
         }
 
-        return Ordering::Equal;
+        Ordering::Equal
     }
 }
 

@@ -108,7 +108,7 @@ impl Fq4 {
     }
     /// Converts an element into a byte representation in
     /// big-endian byte order.
-    pub fn to_slice(&self) -> [u8; 128] {
+    pub fn to_slice(self) -> [u8; 128] {
         let mut res = [0u8; 128];
         let b1 = self.c1.to_slice();
         let b0 = self.c0.to_slice();
@@ -156,13 +156,12 @@ impl FieldElement for Fq4 {
     }
 
     fn inverse(self) -> Option<Self> {
-        match (self.c0.squared() - self.c1.squared_u()).inverse() {
-            Some(t) => Some(Fq4 {
+        (self.c0.squared() - self.c1.squared_u())
+            .inverse()
+            .map(|t| Fq4 {
                 c0: self.c0 * t,
                 c1: -(self.c1 * t),
-            }),
-            None => None,
-        }
+            })
     }
 }
 

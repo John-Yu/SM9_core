@@ -38,8 +38,16 @@ pub trait FieldElement:
     fn inverse(self) -> Option<Self>;
     fn pow<I: Into<U256>>(&self, by: I) -> Self {
         let mut res = Self::one();
-
+        let mut found_one = false;
         for i in by.into().bits() {
+            if !found_one {
+                if i {
+                    // found the first '1'
+                    found_one = true;
+                    res = *self;
+                }
+                continue;
+            }
             res = res.squared();
             if i {
                 res = *self * res;
@@ -48,6 +56,27 @@ pub trait FieldElement:
 
         res
     }
+}
+
+lazy_static::lazy_static! {
+
+    static ref FQ: U256 = U256::from([
+        0xE56F9B27E351457D,
+        0x21F2934B1A7AEEDB,
+        0xD603AB4FF58EC745,
+        0xB640000002A3A6F1
+    ]);
+
+    pub static ref FQ_MINUS3_DIV4: Fq =
+        Fq::new(3.into()).expect("3 is a valid field element and static; qed").neg() *
+        Fq::new(4.into()).expect("4 is a valid field element and static; qed").inverse()
+            .expect("4 has inverse in Fq and is static; qed");
+
+    static ref FQ_MINUS1_DIV2: Fq =
+        Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
+        Fq::new(2.into()).expect("2 is a valid field element and static; qed").inverse()
+            .expect("2 has inverse in Fq and is static; qed");
+
 }
 
 /************************************************************************************************ */

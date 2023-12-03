@@ -14,7 +14,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`...
 
 ```toml
 [dependencies]
-sm9_core = "0.2.0"
+sm9_core = "0.3.0"
 ```
 
 ...and add an `extern crate` declaration to your crate root:
@@ -28,7 +28,7 @@ extern crate sm9_core;
 * `Fr` is an element of F <sub>r </sub>
 * `G1` is a point on the BN curve E/Fq : y <sup>2 </sup> = x <sup>3 </sup> + b
 * `G2` is a point on the twisted BN curve E'/Fq2 : y <sup>2 </sup> = x <sup>3 </sup> + b/xi
-* `Gt` is a group element (written multiplicatively) obtained with the `pairing` function over `G1` and `G2`.
+* `Gt` is a group element (written multiplicatively)
 * `pairing()` is a  API to compute R-ate Pairing G2 x G1 -> GT
 * `fast_pairing()` is another  API to compute R-ate Pairing G2 x G1 -> GT
 
@@ -60,7 +60,11 @@ let r0 = hex!(
         "6A814AAF 475F128A EF43A128 E37F8015 4AE6CB92 CAD7D150 1BAE30F7 50B3A9BD"
         "1F96B08E 97997363 91131470 5BFB9A9D BB97F755 53EC90FB B2DDAE53 C8F68E42"
     );
-assert_eq!(r0, r1)
+assert_eq!(r0, r1);
+// test  fast_pairing
+let g1 = fast_pairing(G1::one(), pub_s).pow(r);
+let r1 = g1.to_slice();
+assert_eq!(r0, r1);
 ```
 
 ## License
@@ -77,9 +81,19 @@ Copyright 2023 [John-Yu](https://github.com/John-Yu).
 ### Thanks
 
 The fields and groups algorithms come from [zcash-bn](https://github.com/zcash-hackworks/bn), and pairing algorithms come from [GmSSL](https://github.com/guanzhi/GmSSL).
-The fast_pairing algorithms come from [MIRACL](https://github.com/miracl/MIRACL),  it faster 11% than pairing().
+The fast_pairing algorithms come from [MIRACL](https://github.com/miracl/MIRACL),  it faster 20% than pairing().
 
 Thanks to them.
+
+### Benchmark
+
+(OS: windows11, CPU:  i7-8700K 3.70GHz, See `my_benchmark.rs` for the details)
+
+| function | times |
+|:-:|:-:|
+| pairing | time:   [2.4263 ms  **2.4336 ms** 2.4415 ms] |
+| fast_pairing  |time:   [1.9603 ms  **1.9740 ms** 1.9879 ms] |
+| precomputed_pairing |time:   [1.7101 ms  **1.7182 ms** 1.7280 ms] |
 
 ### Authors
 
