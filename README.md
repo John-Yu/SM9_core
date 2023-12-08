@@ -1,6 +1,7 @@
 # sm9_core
 
-This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cryptography) library written in pure Rust. It makes use of the Barreto-Naehrig (BN) curve construction from "SM9 identity-based  cryptographic algorithms" to provide two cyclic groups **G <sub>1 </sub>** and **G <sub>2 </sub>**, with an R-ate pairing:
+This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cryptography) library written in pure Rust. 
+It makes use of the Barreto-Naehrig (BN) curve construction from "[SM9](https://en.wikipedia.org/wiki/SM9_(cryptography_standard)) identity-based  cryptographic algorithms" as well as [ISO/IEC 11770](https://www.iso.org/standard/82709.html) to provide two cyclic groups **G <sub>1 </sub>** and **G <sub>2 </sub>**, with an R-ate pairing:
 
 *e: G <sub>1 </sub> × G <sub>2 </sub> → G <sub>T </sub>*
 
@@ -14,7 +15,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`...
 
 ```toml
 [dependencies]
-sm9_core = "0.3.0"
+sm9_core = "0.3.1"
 ```
 
 ...and add an `extern crate` declaration to your crate root:
@@ -81,7 +82,7 @@ Copyright 2023 [John-Yu](https://github.com/John-Yu).
 ### Thanks
 
 The fields and groups algorithms come from [zcash-bn](https://github.com/zcash-hackworks/bn), and pairing algorithms come from [GmSSL](https://github.com/guanzhi/GmSSL).
-The fast_pairing algorithms come from [MIRACL](https://github.com/miracl/MIRACL),  it faster 20% than pairing().
+The fast_pairing algorithms come from [MIRACL](https://github.com/miracl/MIRACL),  it is 23% faster than pairing().
 
 Thanks to them.
 
@@ -91,9 +92,9 @@ Thanks to them.
 
 | function | times |
 |:-:|:-:|
-| pairing | time:   [2.4263 ms  **2.4336 ms** 2.4415 ms] |
-| fast_pairing  |time:   [1.9603 ms  **1.9740 ms** 1.9879 ms] |
-| precomputed_pairing |time:   [1.7101 ms  **1.7182 ms** 1.7280 ms] |
+| pairing | time:   [2.2334 ms 2.2609 ms 2.2919 ms] |
+| fast_pairing  |time:   [1.7314 ms 1.7423 ms 1.7569 ms] |
+| precomputed_pairing |time:   [1.5066 ms 1.5167 ms 1.5289 ms] |
 
 ### Authors
 

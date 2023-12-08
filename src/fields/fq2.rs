@@ -4,7 +4,7 @@ use core::ops::{Add, Mul, Neg, Sub};
 use rand::Rng;
 
 use crate::fields::{FieldElement, Fq, FQ, FQ_MINUS1_DIV2, FQ_MINUS3_DIV4};
-use crate::u256::U256;
+use crate::u256::{Error, U256};
 use crate::u512::U512;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -40,31 +40,6 @@ impl Fq2 {
         }
     }
 
-    pub fn frobenius_map(&self, power: usize) -> Self {
-        if power % 2 == 0 {
-            *self
-        } else {
-            Fq2 {
-                c0: self.c0,
-                c1: -self.c1,
-            }
-        }
-    }
-
-    // c^2 * beta , where beta^2 = -2
-    pub fn squared_u(&self) -> Self {
-        let ab = self.c0 * self.c1;
-        let aa = self.c0 * self.c0;
-        let bb = self.c1 * self.c1;
-
-        //r0 = -4 * c0 * c1
-        //r1 = c0^2 - 2 * c1^2
-        Fq2 {
-            c0: -(ab + ab + ab + ab),
-            c1: aa - bb - bb,
-        }
-    }
-
     pub fn tri(&self) -> Self {
         Fq2 {
             c0: self.c0.tri(),
@@ -89,20 +64,6 @@ impl Fq2 {
 
     pub fn i() -> Self {
         Fq2::new(Fq::zero(), Fq::one())
-    }
-
-    // self * other * i
-    pub fn mul_u(&self, other: Fq2) -> Self {
-        let aa = self.c0 * other.c0;
-        let bb = self.c1 * other.c1;
-        let ab = (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb;
-
-        Fq2 {
-            // c0 =  -2 * (a0 * b1 + a1 * b0)
-            // c1 = aa - 2*bb
-            c0: -(ab + ab),
-            c1: aa - bb - bb,
-        }
     }
 
     pub fn sqrt(&self) -> Option<Self> {
@@ -133,11 +94,25 @@ impl Fq2 {
     /// big-endian byte order.
     pub fn to_slice(self) -> [u8; 64] {
         let mut res = [0u8; 64];
-        let u1: U256 = self.c1.into();
-        let u0: U256 = self.c0.into();
-        u1.to_big_endian(&mut res[..32]).unwrap();
-        u0.to_big_endian(&mut res[32..]).unwrap();
+        let b1 = self.c1.to_slice();
+        let b0 = self.c0.to_slice();
+        res[..32].copy_from_slice(&b1);
+        res[32..].copy_from_slice(&b0);
         res
+    }
+    /// Converts a &[u8] to an element of `Fq2`.
+    pub fn from_slice(s: &[u8]) -> Result<Fq2, Error> {
+        if s.len() != 64 {
+            return Err(Error::InvalidLength {
+                expected: 64,
+                actual: s.len(),
+            });
+        }
+
+        let c1 = Fq::from_slice(&s[..32]).unwrap();
+        let c0 = Fq::from_slice(&s[32..]).unwrap();
+
+        Ok(Fq2 { c0, c1 })
     }
 }
 
@@ -170,30 +145,27 @@ impl FieldElement for Fq2 {
     fn squared(&self) -> Self {
         // Devegili OhEig Scott Dahab
         //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Complex squaring)
-
-        let ab = self.c0 * self.c1;
-        let aa = self.c0 * self.c0;
-        let bb = self.c1 * self.c1;
-
-        //c0: c0^2 - 2 * c1^2
+        //     Section 3 (Complex squaring), which takes 2M + 3A + 2B
+        let a0 = self.c0;
+        let a1 = self.c1;
+        let v0 = a0 * a1;
         Fq2 {
-            c0: aa - bb - bb,
-            c1: ab + ab,
+            c0: (a0 + a1) * (a0 - a1 - a1) + v0,
+            c1: v0 + v0,
         }
     }
 
     fn inverse(self) -> Option<Self> {
         // "High-Speed Software Implementation of the Optimal Ate Pairing
         // over Barreto–Naehrig Curves"; Algorithm 8
-
-        //  t = (c[0]^2 + 2 * c[1]^2)^-1
-        (self.c0.squared() + self.c1.squared() + self.c1.squared())
-            .inverse()
-            .map(|t| Fq2 {
-                c0: self.c0 * t,
-                c1: -(self.c1 * t),
-            })
+        if self.is_zero() {
+            None
+        } else {
+            //  t = (c[0]^2 + 2 * c[1]^2)^-1
+            (self.c0.squared() + self.c1.squared() + self.c1.squared())
+                .inverse()
+                .map(|t| Self::new(self.c0 * t, -(self.c1 * t)))
+        }
     }
 }
 
@@ -203,14 +175,11 @@ impl Mul for Fq2 {
     fn mul(self, other: Fq2) -> Fq2 {
         // Devegili OhEig Scott Dahab
         //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Karatsuba)
-
+        //     Section 3 (Karatsuba), which costs 3M + 2A + 4B
         let aa = self.c0 * other.c0;
         let bb = self.c1 * other.c1;
 
         Fq2 {
-            // beta = -2 ,so c0 = aa - 2*bb
-            // c0: bb * fq_non_residue() + aa,
             c0: aa - bb - bb,
             c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
         }

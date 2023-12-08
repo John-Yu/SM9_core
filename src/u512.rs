@@ -6,7 +6,7 @@ use crunchy::unroll;
 use rand::Rng;
 
 use crate::arith::*;
-use crate::u256::U256;
+use crate::u256::{Error, U256};
 
 /// 512-bit, stack allocated biginteger for use in extension
 /// field serialization and scalar interpretation.
@@ -70,7 +70,7 @@ impl U512 {
     pub fn from_slice(s: &[u8]) -> Result<U512, Error> {
         if s.len() != 64 {
             return Err(Error::InvalidLength {
-                expected: 32,
+                expected: 64,
                 actual: s.len(),
             });
         }
@@ -153,9 +153,4 @@ impl PartialOrd for U512 {
     fn partial_cmp(&self, other: &U512) -> Option<Ordering> {
         Some(self.cmp(other))
     }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    InvalidLength { expected: usize, actual: usize },
 }

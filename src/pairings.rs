@@ -106,9 +106,11 @@ impl Fq12 {
 impl G2 {
     fn point_pi1(&self) -> Self {
         G2::new(
-            self.x().frobenius_map(1),
-            self.y().frobenius_map(1),
-            self.z().frobenius_map(1).scale(&Fq::new(*SM9_PI1).unwrap()),
+            self.x().unitary_inverse(),
+            self.y().unitary_inverse(),
+            self.z()
+                .unitary_inverse()
+                .scale(&Fq::new(*SM9_PI1).unwrap()),
         )
     }
 
@@ -209,12 +211,12 @@ impl G2 {
                 (g_num, g_den) = t.eval_g_line(self, p);
                 f_num *= g_num;
                 f_den *= g_den;
-                t = t.add_full(self);
+                t = t + *self;
             } else if *i == 2 {
                 (g_num, g_den) = t.eval_g_line(&q1, p);
                 f_num *= g_num;
                 f_den *= g_den;
-                t = t.add_full(&q1);
+                t = t + q1;
             }
         }
         q1 = self.point_pi1();
@@ -223,7 +225,7 @@ impl G2 {
         (g_num, g_den) = t.eval_g_line(&q1, p);
         f_num *= g_num;
         f_den *= g_den;
-        t = t.add_full(&q1);
+        t = t + q1;
 
         (g_num, g_den) = t.eval_g_line(&q2, p);
         f_num *= g_num;
@@ -247,7 +249,7 @@ impl G2 {
     fn g_line(&mut self, g2: &G2) -> (Fq2, Fq2, Fq2) {
         let lam = self.z().squared();
         let c2 = self.y - (lam * self.z) * g2.y;
-        *self = self.add_full(g2);
+        *self = *self + *g2;
         let c0 = self.z;
         let c1 = -c2 * g2.x - c0 * g2.y;
 

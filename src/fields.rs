@@ -39,7 +39,7 @@ pub trait FieldElement:
     fn pow<I: Into<U256>>(&self, by: I) -> Self {
         let mut res = Self::one();
         let mut found_one = false;
-        for i in by.into().bits() {
+        for i in by.into().bits().skip_while(|b| !b) {
             if !found_one {
                 if i {
                     // found the first '1'

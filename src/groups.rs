@@ -250,7 +250,11 @@ impl<P: GroupParams> GroupElement for G<P> {
     fn is_zero(&self) -> bool {
         self.z.is_zero()
     }
-
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General
+    // Annex A  A.1.3.3.2
+    // 𝜆1=3𝑥1^2, 𝜆2=4𝑥1𝑦1^2, 𝜆3=8𝑦1^4, 𝑥3=𝜆1^2−2𝜆2, 𝑦3=𝜆1(𝜆2−𝑥3)−𝜆3, 𝑧3=2𝑦1𝑧1
+    // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
     fn double(&self) -> Self {
         let a = self.x.squared();
         let b = self.y.squared();
@@ -279,7 +283,7 @@ impl<P: GroupParams> Mul<Fr> for G<P> {
         let mut res = G::zero();
         let mut found_one = false;
 
-        for i in U256::from(other).bits() {
+        for i in U256::from(other).bits().skip_while(|b| !b) {
             if found_one {
                 res = res.double();
             }
@@ -296,7 +300,12 @@ impl<P: GroupParams> Mul<Fr> for G<P> {
 
 impl<P: GroupParams> Add<G<P>> for G<P> {
     type Output = G<P>;
-
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General
+    // Annex A  A.1.3.3.2
+    // 𝜆1=𝑥1𝑧2^2, 𝜆2=𝑥2𝑧1^2, 𝜆3=𝜆1−𝜆2, 𝜆4=𝑦1𝑧2^3, 𝜆5=𝑦2𝑧1^3, 𝜆6=𝜆4−𝜆5, 𝜆7=𝜆1+𝜆2, 𝜆8=𝜆4+𝜆5, 𝜆9=𝜆7𝜆3^2,
+    // 𝑥3=𝜆6^2−𝜆9, 𝜆10=𝜆9^2−2𝑥3, 𝑦3=(𝜆10𝜆6−𝜆8𝜆3^3)/2, 𝑧3=𝑧1𝑧2𝜆3
+    // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-1998-cmo-2
     fn add(self, other: G<P>) -> G<P> {
         if self.is_zero() {
             return other;
@@ -305,32 +314,68 @@ impl<P: GroupParams> Add<G<P>> for G<P> {
         if other.is_zero() {
             return self;
         }
+        match (self.z == P::Base::one(), other.z == P::Base::one()) {
+            (true, true) => {
+                let h = other.x - self.x;
+                let r = other.y - self.y;
+                if r.is_zero() && h.is_zero() {
+                    return self.double();
+                }
+                let hh = h.squared();
+                let hhh = h * hh;
+                let v = self.x * hh;
+                let x = r.squared() - hhh - v - v;
+                let y = r * (v - x) - self.y * hhh;
+                let z = h;
+                G { x, y, z }
+            }
+            (false, true) => {
+                let z1_squared = self.z.squared();
+                let u2 = other.x * z1_squared;
+                let z1_cubed = self.z * z1_squared;
+                let s2 = other.y * z1_cubed;
+                let h = u2 - self.x;
+                let r = s2 - self.y;
+                if r.is_zero() && h.is_zero() {
+                    return self.double();
+                }
+                let hh = h.squared();
+                let hhh = h * hh;
+                let v = self.x * hh;
+                let x = r.squared() - hhh - v - v;
+                let y = r * (v - x) - self.y * hhh;
+                let z = self.z * h;
+                G { x, y, z }
+            }
+            (true, false) => other + self,
+            (false, false) => {
+                let z1_squared = self.z.squared();
+                let z2_squared = other.z.squared();
+                let u1 = self.x * z2_squared;
+                let u2 = other.x * z1_squared;
+                let z1_cubed = self.z * z1_squared;
+                let z2_cubed = other.z * z2_squared;
+                let s1 = self.y * z2_cubed;
+                let s2 = other.y * z1_cubed;
 
-        let z1_squared = self.z.squared();
-        let z2_squared = other.z.squared();
-        let u1 = self.x * z2_squared;
-        let u2 = other.x * z1_squared;
-        let z1_cubed = self.z * z1_squared;
-        let z2_cubed = other.z * z2_squared;
-        let s1 = self.y * z2_cubed;
-        let s2 = other.y * z1_cubed;
-
-        if u1 == u2 && s1 == s2 {
-            self.double()
-        } else {
-            let h = u2 - u1;
-            let s2_minus_s1 = s2 - s1;
-            let i = (h + h).squared();
-            let j = h * i;
-            let r = s2_minus_s1 + s2_minus_s1;
-            let v = u1 * i;
-            let s1_j = s1 * j;
-            let x3 = r.squared() - j - (v + v);
-
-            G {
-                x: x3,
-                y: r * (v - x3) - (s1_j + s1_j),
-                z: ((self.z + other.z).squared() - z1_squared - z2_squared) * h,
+                let r = s2 - s1;
+                let h = u2 - u1;
+                let t6 = s1 + s2;
+                if r.is_zero() {
+                    if h.is_zero() {
+                        return self.double();
+                    }
+                    if t6.is_zero() {
+                        return Self::zero();
+                    }
+                }
+                let hh = h.squared();
+                let hhh = h * hh;
+                let v = u1 * hh;
+                let x = r.squared() - hhh - v - v;
+                let y = r * (v - x) - s1 * hhh;
+                let z = self.z * other.z * h;
+                G { x, y, z }
             }
         }
     }
@@ -434,59 +479,6 @@ impl GroupParams for G2Params {
 pub type G2 = G<G2Params>;
 
 pub type AffineG2 = AffineG<G2Params>;
-
-impl G2 {
-    pub fn add_full(&self, q: &G2) -> Self {
-        if self.is_zero() {
-            return *q;
-        }
-
-        if q.is_zero() {
-            return *self;
-        }
-
-        let t1 = self.z.squared();
-        let t2 = q.z.squared();
-        let t3 = q.x * t1;
-        let t4 = self.x * t2;
-        let t5 = t3 + t4;
-        let t3 = t3 - t4;
-        let t1 = t1 * self.z;
-        let t1 = t1 * q.y;
-        let t2 = t2 * q.z;
-        let t2 = t2 * self.y;
-        let t6 = t1 + t2;
-        let t1 = t1 - t2;
-
-        if t1.is_zero() {
-            if t3.is_zero() {
-                return self.double();
-            }
-            if t6.is_zero() {
-                return Self::zero();
-            }
-        }
-
-        let t6 = t1.squared();
-        let t7 = t3 * self.z;
-        let t7 = t7 * q.z;
-        let t8 = t3.squared();
-        let t5 = t5 * t8;
-        let t3 = t3 * t8;
-        let t4 = t4 * t8;
-        let t6 = t6 - t5;
-        let t4 = t4 - t6;
-        let t1 = t1 * t4;
-        let t2 = t2 * t3;
-        let t1 = t1 - t2;
-
-        G2 {
-            x: t6,
-            y: t1,
-            z: t7,
-        }
-    }
-}
 
 /* ************************************************************************************************ */
 #[cfg(test)]

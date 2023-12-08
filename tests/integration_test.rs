@@ -120,4 +120,16 @@ fn test_gt_to_slice() {
     let g1 = fast_pairing(G1::one(), pub_s).pow(r);
     let r1 = g1.to_slice();
     assert_eq!(r0, r1);
+    // to_slice, from_slice
+    let sx = pub_s.x().to_slice();
+    let sy = pub_s.y().to_slice();
+    let sz = pub_s.z().to_slice();
+    let x = Fq2::from_slice(&sx).unwrap();
+    let y = Fq2::from_slice(&sy).unwrap();
+    let z = Fq2::from_slice(&sz).unwrap();
+    let mut g2 = G2::zero();
+    g2.set_x(x);
+    g2.set_y(y);
+    g2.set_z(z);
+    assert_eq!(pub_s, g2);
 }

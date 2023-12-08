@@ -73,7 +73,7 @@ macro_rules! field_impl {
             /// Converts an element of `Fp` into a byte representation in big-endian byte order.
             pub fn to_slice(self) -> [u8; 32] {
                 let mut res = [0u8; 32];
-                self.0.to_big_endian(&mut res[..]).unwrap();
+                U256::from(self).to_big_endian(&mut res[..]).unwrap();
                 res
             }
             /// Converts a U256 to an Fr regardless of modulus.
@@ -260,10 +260,6 @@ impl Fq {
         } else {
             Some(a1a)
         }
-    }
-
-    pub fn dbl(&self) -> Self {
-        *self + *self
     }
 
     pub fn tri(&self) -> Self {

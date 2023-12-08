@@ -102,7 +102,8 @@ impl FieldElement for Fq12 {
     fn is_zero(&self) -> bool {
         self.c0.is_zero() && self.c1.is_zero() && self.c2.is_zero()
     }
-
+    //Multiplication and Squaring on Pairing-Friendly Fields.pdf
+    // Section 4 (CH-SQR2)
     fn squared(&self) -> Self {
         let s0 = self.c0.squared();
         let ab = self.c0 * self.c1;
@@ -118,25 +119,27 @@ impl FieldElement for Fq12 {
             c2: s1 + s2 + s3 - s0 - s4,
         }
     }
-
+    //"High-Speed Software Implementation of the Optimal Ate AbstractPairing over Barreto-Naehrig Curves"
+    // Algorithm 17
     fn inverse(self) -> Option<Self> {
-        let c0 = self.c0.squared() - self.c1 * self.c2.mul_by_nonresidue();
-        let c1 = self.c2.squared().mul_by_nonresidue() - self.c0 * self.c1;
-        let c2 = self.c1.squared() - self.c0 * self.c2;
+        if self.is_zero() {
+            None
+        } else {
+            let c0 = self.c0.squared() - self.c1 * self.c2.mul_by_nonresidue();
+            let c1 = self.c2.squared().mul_by_nonresidue() - self.c0 * self.c1;
+            let c2 = self.c1.squared() - self.c0 * self.c2;
 
-        ((self.c2 * c1 + self.c1 * c2).mul_by_nonresidue() + self.c0 * c0)
-            .inverse()
-            .map(|t| Fq12 {
-                c0: t * c0,
-                c1: t * c1,
-                c2: t * c2,
-            })
+            ((self.c2 * c1 + self.c1 * c2).mul_by_nonresidue() + self.c0 * c0)
+                .inverse()
+                .map(|t| Self::new(t * c0, t * c1, t * c2))
+        }
     }
 }
 
 impl Mul for Fq12 {
     type Output = Fq12;
-
+    //Multiplication and Squaring on Pairing-Friendly Fields.pdf
+    // Section 4 (Karatsuba)
     fn mul(self, other: Fq12) -> Fq12 {
         let a_a = self.c0 * other.c0;
         let b_b = self.c1 * other.c1;

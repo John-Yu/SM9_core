@@ -31,7 +31,6 @@ use crate::fields::FieldElement;
 use crate::groups::{G1Params, G2Params, GroupElement, GroupParams};
 pub use crate::pairings::G2Prepared;
 use crate::u256::U256;
-use crate::u512::U512;
 
 /// Represents an element of the finite field F<sub>r</sub>
 // where r = 0xB640000002A3A6F1D603AB4FF58EC74449F2934B18EA8BEEE56EE19CD69ECF25
@@ -305,10 +304,6 @@ impl Fq2 {
         Fq2(fields::Fq2::one())
     }
 
-    pub fn i() -> Fq2 {
-        Fq2(fields::Fq2::i())
-    }
-
     pub fn zero() -> Fq2 {
         Fq2(fields::Fq2::zero())
     }
@@ -338,14 +333,12 @@ impl Fq2 {
         self.0.sqrt().map(Fq2)
     }
     /// Attempts to convert a big-endian byte representation of
-    /// a field element into an element,
-    pub fn from_slice(bytes: &[u8]) -> Result<Self, FieldError> {
-        let u512 = U512::from_slice(bytes).map_err(|_| FieldError::InvalidU512Encoding)?;
-        let (res, c0) = u512.divrem(&Fq::modulus());
-        Ok(Fq2::new(
-            Fq::from_u256(c0).map_err(|_| FieldError::NotMember)?,
-            Fq::from_u256(res.ok_or(FieldError::NotMember)?).map_err(|_| FieldError::NotMember)?,
-        ))
+    /// a field element into an element of `Fq2`,
+    pub fn from_slice(hex: &[u8]) -> Option<Self> {
+        fields::Fq2::from_slice(hex)
+            .map(Fq2)
+            .map_err(|_| FieldError::InvalidSliceLength)
+            .ok()
     }
     /// Converts an element into a slice of bytes in
     /// big-endian byte order.
@@ -542,7 +535,7 @@ impl G2 {
         }
 
         let sign = bytes[0];
-        let x = Fq2::from_slice(&bytes[1..])?;
+        let x = Fq2::from_slice(&bytes[1..]).unwrap();
 
         let y_squared = (x * x * x) + G2::b();
         let y = y_squared.sqrt().ok_or(CurveError::NotMember)?;
@@ -762,6 +755,32 @@ mod tests {
     use hex_literal::hex;
 
     #[test]
+    fn test_fq_from_to_slice() {
+        let f1 = Fq::from_slice(&hex!(
+            "A5702F05 CF131530 5E2D6EB6 4B0DEB92 3DB1A0BC F0CAFF90 523AC875 4AA69820"
+        ))
+        .unwrap();
+        let s = f1.to_slice();
+        let f2 = Fq::from_slice(&s).unwrap();
+        assert_eq!(f1, f2);
+    }
+    #[test]
+    fn test_fq2_from_to_slice() {
+        let f1 = Fq2::new(
+            Fq::from_slice(&hex!(
+                "29DBA116 152D1F78 6CE843ED 24A3B573 414D2177 386A92DD 8F14D656 96EA5E32"
+            ))
+            .unwrap(),
+            Fq::from_slice(&hex!(
+                "9F64080B 3084F733 E48AFF4B 41B56501 1CE0711C 5E392CFB 0AB1B679 1B94C408"
+            ))
+            .unwrap(),
+        );
+        let s = f1.to_slice();
+        let f2 = Fq2::from_slice(&s).unwrap();
+        assert_eq!(f1, f2);
+    }
+    #[test]
     fn test_fq_to_big_endian() {
         let a = Fq::from_str("1").unwrap();
         let mut b = [0u8; 32];
@@ -902,7 +921,9 @@ mod tests {
         );
         let c = fields::Fq4::new(r0.0, r1.0);
         let r = fields::Fq12::new(a, b, c);
-        assert_eq!(r, g.0)
+        assert_eq!(r, g.0);
+        let g1 = fast_pairing(G1::one(), pub_s);
+        assert_eq!(r, g1.0);
     }
 
     #[test]

@@ -112,7 +112,7 @@ impl Fq4 {
         let mut res = [0u8; 128];
         let b1 = self.c1.to_slice();
         let b0 = self.c0.to_slice();
-        res[0..64].copy_from_slice(&b1);
+        res[..64].copy_from_slice(&b1);
         res[64..].copy_from_slice(&b0);
         res
     }
@@ -143,25 +143,29 @@ impl FieldElement for Fq4 {
         self.c0.is_zero() && self.c1.is_zero()
     }
 
-    //Algorithm 9
+    /// Squares this element
     fn squared(&self) -> Self {
-        let ab = self.c0 * self.c1;
-        let aa = self.c0.squared();
-        let bb = self.c1.squared_u();
-
+        // Devegili OhEig Scott Dahab
+        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
+        //     Section 3 (Complex squaring), which takes 2M + 3A + 2B
+        let a0 = self.c0;
+        let a1 = self.c1;
+        let v0 = a0 * a1;
         Fq4 {
-            c0: aa + bb,
-            c1: ab + ab,
+            c0: (a0 + a1) * (a0 + a1.mul_by_nonresidue()) - v0 - v0.mul_by_nonresidue(),
+            c1: v0 + v0,
         }
     }
-
+    //"High-Speed Software Implementation of the Optimal Ate AbstractPairing over Barreto-Naehrig Curves"
+    // Algorithm 23
     fn inverse(self) -> Option<Self> {
-        (self.c0.squared() - self.c1.squared_u())
-            .inverse()
-            .map(|t| Fq4 {
-                c0: self.c0 * t,
-                c1: -(self.c1 * t),
-            })
+        if self.is_zero() {
+            None
+        } else {
+            (self.c0.squared() - self.c1.squared().mul_by_nonresidue())
+                .inverse()
+                .map(|t| Self::new(self.c0 * t, -(self.c1 * t)))
+        }
     }
 }
 
@@ -169,12 +173,14 @@ impl Mul for Fq4 {
     type Output = Fq4;
 
     fn mul(self, other: Fq4) -> Fq4 {
+        // Devegili OhEig Scott Dahab
+        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
+        //     Section 3 (Karatsuba), which costs 3M + 3A + 2B
         let aa = self.c0 * other.c0;
         let bb = self.c1 * other.c1;
-        let cc = self.c1.mul_u(other.c1);
 
         Fq4 {
-            c0: cc + aa,
+            c0: aa + bb.mul_by_nonresidue(),
             c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
         }
     }
