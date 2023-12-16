@@ -133,3 +133,52 @@ fn test_gt_to_slice() {
     g2.set_z(z);
     assert_eq!(pub_s, g2);
 }
+
+#[test]
+fn test_g1_compress() {
+    let rng = &mut thread_rng();
+    let a = Fr::random(rng);
+    let mut g = G1::one() * a;
+    g.normalize();
+    let c0 = g.to_compressed();
+    let g1 = G1::from_compressed(&c0).unwrap();
+
+    assert_eq!(g, g1);
+}
+
+#[test]
+fn test_g1_uncompress() {
+    let rng = &mut thread_rng();
+    let a = Fr::random(rng);
+    let mut g = G1::one() * a;
+    g.normalize();
+    let c0 = g.to_slice();
+    let g1 = G1::from_slice(&c0).unwrap();
+
+    assert_eq!(g, g1);
+}
+
+#[test]
+fn test_g2_compress() {
+    let rng = &mut thread_rng();
+    let a = Fr::random(rng);
+    let mut g = G2::one() * a;
+    g.normalize();
+
+    let c0 = g.to_compressed();
+    let g2 = G2::from_compressed(&c0).unwrap();
+
+    assert_eq!(g, g2);
+}
+
+#[test]
+fn test_g2_uncompress() {
+    let rng = &mut thread_rng();
+    let a = Fr::random(rng);
+    let mut g = G2::one() * a;
+    g.normalize();
+    let c0 = g.to_slice();
+    let g1 = G2::from_slice(&c0).unwrap();
+
+    assert_eq!(g, g1);
+}

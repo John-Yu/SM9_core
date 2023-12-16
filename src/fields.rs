@@ -67,15 +67,15 @@ lazy_static::lazy_static! {
         0xB640000002A3A6F1
     ]);
 
-    pub static ref FQ_MINUS3_DIV4: Fq =
-        Fq::new(3.into()).expect("3 is a valid field element and static; qed").neg() *
+    pub static ref FQ_MINUS1_DIV4: Fq =
+        Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
         Fq::new(4.into()).expect("4 is a valid field element and static; qed").inverse()
             .expect("4 has inverse in Fq and is static; qed");
 
-    static ref FQ_MINUS1_DIV2: Fq =
-        Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
-        Fq::new(2.into()).expect("2 is a valid field element and static; qed").inverse()
-            .expect("2 has inverse in Fq and is static; qed");
+    pub static ref FQ_MINUS5_DIV8: Fq =
+        Fq::new(5.into()).expect("5 is a valid field element and static; qed").neg() *
+        Fq::new(8.into()).expect("8 is a valid field element and static; qed").inverse()
+            .expect("8 has inverse in Fq and is static; qed");
 
 }
 
@@ -586,8 +586,17 @@ mod tests {
 
     #[test]
     fn test_fq2_sqrt() {
-        // i is sqrt(-1)
-        assert_eq!(Fq2::one().neg().sqrt().unwrap(), Fq2::i(),);
+        let a2 = Fq2::one() + Fq2::one();
+        let a4 = a2 + a2;
+        let a8 = a4 + a4;
+        // i is sqrt(-2)
+        assert_eq!(a2.neg().sqrt().unwrap(), Fq2::i());
+        // 2i is sqrt(-8)
+        assert_eq!(a8.neg().sqrt().unwrap(), Fq2::i() + Fq2::i());
+        // 2 is sqrt(4)
+        assert_eq!(a4.sqrt().unwrap(), a2);
+        // 1 is sqrt(1)
+        assert_eq!(Fq2::one().sqrt().unwrap(), Fq2::one());
     }
 
     const X00: [u8; 32] = hex!("3c2f6327ef1c5aa1d06e8cebc4100f0758c04476f40e8a0facb0a0bf09a9dd42");

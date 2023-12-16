@@ -6,7 +6,8 @@
 //! - no unsafe{}
 //!
 #![no_std]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
+#![doc = include_str!("../README.md")]
 
 #[cfg(test)]
 #[macro_use]
@@ -71,7 +72,7 @@ use crate::u256::U256;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct Fr(fields::Fr);
+pub struct Fr(pub(crate) fields::Fr);
 
 impl Fr {
     /// Returns zero, the additive identity.
@@ -115,6 +116,10 @@ impl Fr {
         U256::from_slice(slice)
             .map_err(|_| FieldError::InvalidSliceLength) // todo: maybe more sensful error handling
             .map(Fr::new_mul_factor)
+    }
+    /// for H1() and H2(), Attempts to convert a HASH result (40 bytes) to a Fr element
+    pub fn from_hash(hex: &[u8]) -> Option<Self> {
+        fields::Fr::from_hash(hex).map(Fr)
     }
     /// Converts an element of `Fr` into a byte representation in
     /// big-endian byte order.
@@ -233,8 +238,12 @@ impl Fq {
     pub fn inverse(&self) -> Option<Self> {
         self.0.inverse().map(Fq)
     }
+    /// Returns true if element is the additive identity.
     pub fn is_zero(&self) -> bool {
         self.0.is_zero()
+    }
+    pub fn is_even(&self) -> bool {
+        self.into_u256().is_even()
     }
     pub fn interpret(buf: &[u8; 64]) -> Fq {
         Fq(fields::Fq::interpret(buf))
@@ -303,28 +312,28 @@ impl Fq2 {
     pub fn one() -> Fq2 {
         Fq2(fields::Fq2::one())
     }
-
     pub fn zero() -> Fq2 {
         Fq2(fields::Fq2::zero())
     }
-
-    /// Initalizes new F_q2(a + bi, a is real coeff, b is imaginary)
+    /// Initalizes new Fq2(a + bi, a is real coeff, b is imaginary)
     pub fn new(a: Fq, b: Fq) -> Fq2 {
         Fq2(fields::Fq2::new(a.0, b.0))
     }
-
+    /// Returns true if element is the additive identity.
     pub fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
-
+    pub fn is_even(&self) -> bool {
+        self.real().into_u256().is_even()
+    }
+    /// Exponentiates `self` by `exp`, where `exp` is a
+    /// U256 element exponent.
     pub fn pow(&self, exp: U256) -> Self {
         Fq2(self.0.pow(exp))
     }
-
     pub fn real(&self) -> Fq {
         Fq(*self.0.real())
     }
-
     pub fn imaginary(&self) -> Fq {
         Fq(*self.0.imaginary())
     }
@@ -436,6 +445,68 @@ impl G1 {
     pub fn b() -> Fq {
         Fq(G1Params::coeff_b())
     }
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General
+    // Annex A  A.4.2
+    pub fn from_compressed(bytes: &[u8]) -> Result<Self, CurveError> {
+        if bytes.len() != 33 {
+            return Err(CurveError::InvalidEncoding);
+        }
+
+        let sign = bytes[0];
+        debug_assert!(sign == 2 || sign == 3);
+        let x = Fq::from_slice(&bytes[1..]).ok_or(CurveError::InvalidEncoding)?;
+        let y_squared = (x * x * x) + Self::b();
+        let mut y = y_squared.sqrt().ok_or(CurveError::NotMember)?;
+        let is_even = sign & 1 == 0;
+
+        if is_even != y.is_even() {
+            y = -y;
+        }
+
+        AffineG1::new(x, y)
+            .map_err(|_| CurveError::NotMember)
+            .map(Into::into)
+    }
+    /// Serializes this element into compressed form.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General 6.2.8
+    pub fn to_compressed(self) -> [u8; 33] {
+        let mut res = [0u8; 33];
+        let ag1 = AffineG1::from_jacobian(self).unwrap();
+        res[0] = 2; // compressed
+        if !ag1.y().is_even() {
+            res[0] |= 1;
+        }
+        res[1..].copy_from_slice(&ag1.x().to_slice());
+
+        res
+    }
+    /// Serializes this element into uncompressed form.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 1
+    pub fn to_slice(self) -> [u8; 64] {
+        let mut res = [0u8; 64];
+        let ag1 = AffineG1::from_jacobian(self).unwrap();
+        res[..32].copy_from_slice(&ag1.x().to_slice());
+        res[32..].copy_from_slice(&ag1.y().to_slice());
+
+        res
+    }
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 1
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, CurveError> {
+        if bytes.len() != 64 {
+            return Err(CurveError::InvalidEncoding);
+        }
+
+        let x = Fq::from_slice(&bytes[..32]).ok_or(CurveError::InvalidEncoding)?;
+        let y = Fq::from_slice(&bytes[32..]).ok_or(CurveError::InvalidEncoding)?;
+
+        AffineG1::new(x, y)
+            .map_err(|_| CurveError::NotMember)
+            .map(Into::into)
+    }
 }
 
 impl Group for G1 {
@@ -445,7 +516,6 @@ impl Group for G1 {
     fn one() -> Self {
         G1(groups::G1::one())
     }
-
     fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
@@ -528,38 +598,65 @@ impl G2 {
     pub fn b() -> Fq2 {
         Fq2(G2Params::coeff_b())
     }
-
+    /// get the element from a compressed form.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General
+    // Annex A  A.4.3
     pub fn from_compressed(bytes: &[u8]) -> Result<Self, CurveError> {
         if bytes.len() != 65 {
             return Err(CurveError::InvalidEncoding);
         }
-
         let sign = bytes[0];
-        let x = Fq2::from_slice(&bytes[1..]).unwrap();
+        debug_assert!(sign == 2 || sign == 3);
+        let x = Fq2::from_slice(&bytes[1..]).ok_or(CurveError::InvalidEncoding)?;
+        let y_squared = (x * x * x) + Self::b();
+        let mut y = y_squared.sqrt().ok_or(CurveError::NotMember)?;
+        let is_even = sign & 1 == 0;
 
-        let y_squared = (x * x * x) + G2::b();
-        let y = y_squared.sqrt().ok_or(CurveError::NotMember)?;
-        let y_neg = -y;
+        if is_even != y.is_even() {
+            y = -y;
+        }
 
-        let y_gt = y.0.to_u512() > y_neg.0.to_u512();
+        AffineG2::new(x, y)
+            .map_err(|_| CurveError::NotMember)
+            .map(Into::into)
+    }
+    /// Serializes this element into compressed form.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General 6.2.8
+    pub fn to_compressed(self) -> [u8; 65] {
+        let mut res = [0u8; 65];
+        let ag1 = AffineG2::from_jacobian(self).unwrap();
+        res[0] = 2; // compressed
+        if !ag1.y().is_even() {
+            res[0] |= 1;
+        }
+        res[1..].copy_from_slice(&ag1.x().to_slice());
 
-        let e_y = if sign == 10 {
-            if y_gt {
-                y_neg
-            } else {
-                y
-            }
-        } else if sign == 11 {
-            if y_gt {
-                y
-            } else {
-                y_neg
-            }
-        } else {
+        res
+    }
+    /// Serializes this element into uncompressed form.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 1
+    pub fn to_slice(self) -> [u8; 128] {
+        let mut res = [0u8; 128];
+        let ag = AffineG2::from_jacobian(self).unwrap();
+        res[..64].copy_from_slice(&ag.x().to_slice());
+        res[64..].copy_from_slice(&ag.y().to_slice());
+
+        res
+    }
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 1
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, CurveError> {
+        if bytes.len() != 128 {
             return Err(CurveError::InvalidEncoding);
-        };
+        }
 
-        AffineG2::new(x, e_y)
+        let x = Fq2::from_slice(&bytes[..64]).ok_or(CurveError::InvalidEncoding)?;
+        let y = Fq2::from_slice(&bytes[64..]).ok_or(CurveError::InvalidEncoding)?;
+
+        AffineG2::new(x, y)
             .map_err(|_| CurveError::NotMember)
             .map(Into::into)
     }

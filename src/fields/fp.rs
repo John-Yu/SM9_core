@@ -3,7 +3,7 @@ use core::fmt;
 use core::ops::{Add, Mul, Neg, Sub};
 use rand::Rng;
 
-use crate::fields::{FieldElement, FQ, FQ_MINUS3_DIV4};
+use crate::fields::{FieldElement, FQ, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8};
 use crate::u256::U256;
 use crate::u512::U512;
 
@@ -247,18 +247,38 @@ field_impl!(
 
 impl Fq {
     /// Computes the square root of this element, if it exists.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General
+    // Annex C  C.1.4.1, Algorithm 2
     pub fn sqrt(&self) -> Option<Self> {
-        let a1 = self.pow(*FQ_MINUS3_DIV4);
-        let a1a = a1 * *self;
-        let a0 = a1 * (a1a);
-
-        let mut am1 = *FQ;
-        am1.sub(&1.into(), &FQ);
-
-        if a0 == Fq::new(am1).unwrap() {
+        if self.is_zero() {
+            return Some(Self::zero());
+        }
+        // 2u+1 = (q-1)/4
+        let a1a = self.pow(*FQ_MINUS1_DIV4);
+        let mut res = Fq::zero();
+        if a1a.is_one() {
+            // g^(u+1) = g^u * g
+            res = self.pow(*FQ_MINUS5_DIV8) * *self;
+        } else if (-a1a).is_one() {
+            // (q-5)/8
+            // 2g
+            let a = *self + *self;
+            // 4g
+            let aa = a + a;
+            // (4g)^u
+            let b = aa.pow(*FQ_MINUS5_DIV8);
+            res = a * b;
+        }
+        if res.is_zero() {
             None
         } else {
-            Some(a1a)
+            // return positive number
+            let r = -res;
+            if U256::from(r) < U256::from(res) {
+                res = r;
+            }
+            Some(res)
         }
     }
 
@@ -269,5 +289,27 @@ impl Fq {
     pub fn div2(mut self) -> Self {
         self.0.div2(&FQ);
         self
+    }
+    /// Returns true if element is one.
+    pub fn is_one(&self) -> bool {
+        *self == Self::one()
+    }
+}
+
+impl Fr {
+    /// for H1() and H2()
+    // h = (Ha mod (n-1)) + 1;  h in [1, n-1], n is the curve order, Ha is 40 bytes from hash
+    pub fn from_hash(ha: &[u8]) -> Option<Self> {
+        if ha.len() > 64 {
+            return None;
+        }
+        let mut v = [0u8; 64];
+        let start = 64 - ha.len();
+        v[start..].copy_from_slice(ha);
+        let u512 = U512::interpret(&v);
+        // n-1
+        let a = U256::from(-Fr::one());
+        let (_, c0) = u512.divrem(&a);
+        Fr::new(c0).map(|f| f + Fr::one())
     }
 }

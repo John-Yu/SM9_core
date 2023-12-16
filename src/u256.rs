@@ -69,7 +69,6 @@ impl U256 {
     pub fn one() -> U256 {
         U256([1, 0])
     }
-
     /// Produce a random number (mod `modulo`)
     pub fn random<R: Rng>(rng: &mut R, modulo: &U256) -> U256 {
         U512::random(rng).divrem(modulo).1
@@ -77,6 +76,10 @@ impl U256 {
     /// Returns true if element is zero.
     pub fn is_zero(&self) -> bool {
         self.0[0] == 0 && self.0[1] == 0
+    }
+    /// Returns true if element is one.
+    pub fn is_one(&self) -> bool {
+        self.0[0] == 1 && self.0[1] == 0
     }
 
     pub fn set_bit(&mut self, n: usize, to: bool) -> bool {
@@ -204,7 +207,7 @@ impl U256 {
         let mut b = U256::one();
         let mut c = U256::zero();
 
-        while u != U256::one() && v != U256::one() {
+        while !u.is_one() && !v.is_one() {
             while u.is_even() {
                 div2(&mut u.0);
                 b.div2(modulo);
@@ -223,7 +226,7 @@ impl U256 {
             }
         }
 
-        if u == U256::one() {
+        if u.is_one() {
             self.0 = b.0;
         } else {
             self.0 = c.0;

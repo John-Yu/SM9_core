@@ -468,7 +468,7 @@ impl GroupParams for G2Params {
     }
 
     fn coeff_b() -> Fq2 {
-        Fq2::one().scale(&Fq::from_str("5").unwrap())
+        Fq2::i().scale(&Fq::from_str("5").unwrap())
     }
 
     fn check_order() -> bool {

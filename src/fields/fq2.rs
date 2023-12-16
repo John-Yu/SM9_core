@@ -3,7 +3,7 @@
 use core::ops::{Add, Mul, Neg, Sub};
 use rand::Rng;
 
-use crate::fields::{FieldElement, Fq, FQ, FQ_MINUS1_DIV2, FQ_MINUS3_DIV4};
+use crate::fields::{FieldElement, Fq, FQ};
 use crate::u256::{Error, U256};
 use crate::u512::U512;
 
@@ -65,23 +65,41 @@ impl Fq2 {
     pub fn i() -> Self {
         Fq2::new(Fq::zero(), Fq::one())
     }
-
+    /// Computes the square root of this element, if it exists.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General
+    // Annex C  C.1.4.2
     pub fn sqrt(&self) -> Option<Self> {
-        let a1 = self.pow::<U256>((*FQ_MINUS3_DIV4).into());
-        let a1a = a1 * *self;
-        let alpha = a1 * a1a;
-        let a0 = alpha.pow(*FQ) * alpha;
-
-        if a0 == Fq2::one().neg() {
-            return None;
+        if self.is_zero() {
+            return Some(Self::zero());
         }
-
-        if alpha == Fq2::one().neg() {
-            Some(Self::i() * a1a)
-        } else {
-            let b = (alpha + Fq2::one()).pow::<U256>((*FQ_MINUS1_DIV2).into());
-            Some(b * a1a)
-        }
+        let b = self.c1;
+        let a = self.c0;
+        let bb = b.squared();
+        let aa = a.squared();
+        let u = aa + bb + bb;
+        let mut y = Fq::zero();
+        u.sqrt().and_then(|w| {
+            let v = (a + w).div2();
+            let m = v.sqrt().map(|t| {
+                y = t;
+            });
+            if m.is_none() {
+                let v = (a - w).div2();
+                v.sqrt().map(|t| {
+                    y = t;
+                })?;
+            }
+            let y2 = y + y;
+            let z1 = if y.is_zero() {
+                // i^2 = -2
+                w.div2().sqrt()?
+            } else {
+                b * y2.inverse().unwrap()
+            };
+            let z0 = y;
+            Some(Self::new(z0, z1))
+        })
     }
     /// Converts an element of `Fq2` into a U512
     pub fn to_u512(self) -> U512 {
@@ -137,7 +155,7 @@ impl FieldElement for Fq2 {
             c1: Fq::random(rng),
         }
     }
-
+    /// Returns true if element is zero.
     fn is_zero(&self) -> bool {
         self.c0.is_zero() && self.c1.is_zero()
     }
