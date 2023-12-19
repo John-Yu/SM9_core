@@ -11,24 +11,18 @@ This library, like other pairing cryptography libraries implementing this constr
 
 ## Usage
 
-Add the `sm9_core` crate to your dependencies in `Cargo.toml`...
+Add the `sm9_core` crate to your dependencies in `Cargo.toml`
 
 ```toml
 [dependencies]
-sm9_core = "0.3.1"
-```
-
-...and add an `extern crate` declaration to your crate root:
-
-```rust
-extern crate sm9_core;
+sm9_core = "0.3.3"
 ```
 
 ## API
 
 * `Fr` is an element of F <sub>r </sub>
 * `G1` is a point on the BN curve E/Fq : y <sup>2 </sup> = x <sup>3 </sup> + b
-* `G2` is a point on the twisted BN curve E'/Fq2 : y <sup>2 </sup> = x <sup>3 </sup> + b/xi
+* `G2` is a point on the twisted BN curve E'/Fq2 : y <sup>2 </sup> = x <sup>3 </sup> + b x i
 * `Gt` is a group element (written multiplicatively)
 * `pairing()` is a  API to compute R-ate Pairing G2 x G1 -> GT
 * `fast_pairing()` is another  API to compute R-ate Pairing G2 x G1 -> GT

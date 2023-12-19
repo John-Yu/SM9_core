@@ -63,6 +63,7 @@ macro_rules! field_impl {
             }
 
             /// Converts a &[u8] to an Fp so long as it's below the modulus.
+            /// the length of hex must be 32
             pub fn from_slice(hex: &[u8]) -> Option<Self> {
                 match U256::from_slice(hex) {
                     Ok(a) => Self::new(a),
@@ -76,12 +77,12 @@ macro_rules! field_impl {
                 U256::from(self).to_big_endian(&mut res[..]).unwrap();
                 res
             }
-            /// Converts a U256 to an Fr regardless of modulus.
+            /// Converts a U256 to a Fp regardless of modulus.
             pub fn new_mul_factor(mut a: U256) -> Self {
                 a.mul(&U256::from($rsquared), &U256::from($modulus), $inv);
                 $name(a)
             }
-
+            /// Converts a &[u8; 64] to a Fp regardless of modulus.
             pub fn interpret(buf: &[u8; 64]) -> Self {
                 $name::new(U512::interpret(buf).divrem(&U256::from($modulus)).1).unwrap()
             }
@@ -309,7 +310,7 @@ impl Fr {
         let u512 = U512::interpret(&v);
         // n-1
         let a = U256::from(-Fr::one());
-        let (_, c0) = u512.divrem(&a);
-        Fr::new(c0).map(|f| f + Fr::one())
+        // h = (Ha mod (n-1)) + 1
+        Fr::new(u512.divrem(&a).1).map(|f| f + Fr::one())
     }
 }

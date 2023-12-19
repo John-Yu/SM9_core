@@ -75,6 +75,34 @@ use crate::u256::U256;
 pub struct Fr(pub(crate) fields::Fr);
 
 impl Fr {
+    /// Attempts to convert a decimal base string to a element of `Fr`
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        fields::Fr::from_str(s).map(Fr)
+    }
+    /// Attempts to convert a big-endian byte slice
+    /// into an element of `Fr`, slice's length must be in [1, 64]
+    pub fn from_slice(hex: &[u8]) -> Option<Self> {
+        let len = hex.len();
+        match len {
+            1..=31 => {
+                let mut t = [0u8; 32];
+                t[32 - len..].copy_from_slice(hex);
+                fields::Fr::from_slice(t.as_ref()).map(Fr)
+            }
+            32 => U256::from_slice(hex).ok().map(Fr::new_mul_factor),
+            33..=64 => {
+                let mut t = [0u8; 64];
+                t[64 - len..].copy_from_slice(hex);
+                Some(Fr(fields::Fr::interpret(&t)))
+            }
+            _ => None,
+        }
+    }
+    /// for H1() and H2(), Attempts to convert a HASH result (40 bytes) to a Fr element
+    pub fn from_hash(hex: &[u8]) -> Option<Self> {
+        fields::Fr::from_hash(hex).map(Fr)
+    }
     /// Returns zero, the additive identity.
     pub fn zero() -> Self {
         Fr(fields::Fr::zero())
@@ -87,11 +115,6 @@ impl Fr {
     /// Fr element exponent.
     pub fn pow(&self, exp: Fr) -> Self {
         Fr(self.0.pow(exp.0))
-    }
-    /// Attempts to convert a string base 10 to a element of `Fr`
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        fields::Fr::from_str(s).map(Fr)
     }
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
@@ -106,40 +129,33 @@ impl Fr {
     pub fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
+    /// Attempts to convert a big-endian byte representation of
+    /// a field element into an element of `Fr`, slice length must be 64
     pub fn interpret(buf: &[u8; 64]) -> Fr {
         Fr(fields::Fr::interpret(buf))
-    }
-    /// Attempts to convert a big-endian byte representation of
-    /// a field element into an element of `Fr`, failing if the input
-    /// is not canonical (is not smaller than r or Invalid Slice Length).
-    pub fn from_slice(slice: &[u8]) -> Result<Self, FieldError> {
-        U256::from_slice(slice)
-            .map_err(|_| FieldError::InvalidSliceLength) // todo: maybe more sensful error handling
-            .map(Fr::new_mul_factor)
-    }
-    /// for H1() and H2(), Attempts to convert a HASH result (40 bytes) to a Fr element
-    pub fn from_hash(hex: &[u8]) -> Option<Self> {
-        fields::Fr::from_hash(hex).map(Fr)
     }
     /// Converts an element of `Fr` into a byte representation in
     /// big-endian byte order.
     pub fn to_slice(self) -> [u8; 32] {
         self.0.to_slice()
     }
-    pub fn new(val: U256) -> Option<Self> {
-        fields::Fr::new(val).map(Fr)
-    }
-    pub fn new_mul_factor(val: U256) -> Self {
-        Fr(fields::Fr::new_mul_factor(val))
-    }
-    /// Converts an element into a 256-bit big-endian integer(U256)
-    /// Turn into canonical form by computing: (a.R) / R = a
-    pub fn into_u256(self) -> U256 {
-        (self.0).into()
-    }
+    /// Set the specified bit to 0 or 1
     pub fn set_bit(&mut self, bit: usize, to: bool) {
         self.0.set_bit(bit, to);
     }
+    pub(crate) fn new_mul_factor(val: U256) -> Self {
+        Fr(fields::Fr::new_mul_factor(val))
+    }
+    /*
+    pub(crate) fn new(val: U256) -> Option<Self> {
+        fields::Fr::new(val).map(Fr)
+    }
+    /// Converts an element into a 256-bit big-endian integer(U256)
+    /// Turn into canonical form by computing: (a.R) / R = a
+    pub(crate) fn into_u256(self) -> U256 {
+        (self.0).into()
+    }
+    */
 }
 
 impl Add<Fr> for Fr {
@@ -205,6 +221,30 @@ pub use crate::groups::Error as GroupError;
 pub struct Fq(fields::Fq);
 
 impl Fq {
+    /// Attempts to convert a decimal base string to a element of `Fq`
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        fields::Fq::from_str(s).map(Fq)
+    }
+    /// Attempts to convert a big-endian byte slice
+    /// into an element of `Fq`, slice's length must be in [1, 64]
+    pub fn from_slice(hex: &[u8]) -> Option<Self> {
+        let len = hex.len();
+        match len {
+            1..=31 => {
+                let mut t = [0u8; 32];
+                t[32 - len..].copy_from_slice(hex);
+                fields::Fq::from_slice(t.as_ref()).map(Fq)
+            }
+            32 => U256::from_slice(hex).ok().map(Fq::new_mul_factor),
+            33..=64 => {
+                let mut t = [0u8; 64];
+                t[64 - len..].copy_from_slice(hex);
+                Some(Fq(fields::Fq::interpret(&t)))
+            }
+            _ => None,
+        }
+    }
     /// Returns zero, the additive identity.
     pub fn zero() -> Self {
         Fq(fields::Fq::zero())
@@ -217,16 +257,6 @@ impl Fq {
     /// Fq element exponent.
     pub fn pow(&self, exp: Fq) -> Self {
         Fq(self.0.pow(exp.0))
-    }
-    /// Attempts to convert a string base 10 to a element of `Fq`
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        fields::Fq::from_str(s).map(Fq)
-    }
-    /// Attempts to convert a big-endian byte representation of
-    /// a field element into an element of `Fq`,
-    pub fn from_slice(hex: &[u8]) -> Option<Self> {
-        fields::Fq::from_slice(hex).map(Fq)
     }
     /// Converts an element of `Fq` into a byte representation in
     /// big-endian byte order.
@@ -242,9 +272,12 @@ impl Fq {
     pub fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
+    /// Returns true if element is even.
     pub fn is_even(&self) -> bool {
         self.into_u256().is_even()
     }
+    /// Attempts to convert a big-endian byte representation of
+    /// a field element into an element of `Fq`, slice length must be 64
     pub fn interpret(buf: &[u8; 64]) -> Fq {
         Fq(fields::Fq::interpret(buf))
     }
@@ -255,21 +288,26 @@ impl Fq {
             .to_big_endian(slice)
             .map_err(|_| FieldError::InvalidSliceLength)
     }
-    pub fn from_u256(u256: U256) -> Result<Self, FieldError> {
-        Ok(Fq(fields::Fq::new(u256).ok_or(FieldError::NotMember)?))
-    }
-    /// Converts an element into a 256-bit big-endian integer(U256)
-    /// Turn into canonical form by computing: (a.R) / R = a
-    pub fn into_u256(self) -> U256 {
-        (self.0).into()
-    }
-    pub fn modulus() -> U256 {
-        fields::Fq::modulus()
-    }
     /// Computes the square root of this element, if it exists.
     pub fn sqrt(&self) -> Option<Self> {
         self.0.sqrt().map(Fq)
     }
+    /// Converts an element into a 256-bit big-endian integer(U256)
+    /// Turn into canonical form by computing: (a.R) / R = a
+    pub(crate) fn into_u256(self) -> U256 {
+        (self.0).into()
+    }
+    pub(crate) fn new_mul_factor(val: U256) -> Self {
+        Fq(fields::Fq::new_mul_factor(val))
+    }
+    /*
+    pub(crate) fn from_u256(u256: U256) -> Result<Self, FieldError> {
+        Ok(Fq(fields::Fq::new(u256).ok_or(FieldError::NotMember)?))
+    }
+    pub(crate) fn modulus() -> U256 {
+        fields::Fq::modulus()
+    }
+    */
 }
 
 impl Add<Fq> for Fq {
@@ -326,11 +364,6 @@ impl Fq2 {
     pub fn is_even(&self) -> bool {
         self.real().into_u256().is_even()
     }
-    /// Exponentiates `self` by `exp`, where `exp` is a
-    /// U256 element exponent.
-    pub fn pow(&self, exp: U256) -> Self {
-        Fq2(self.0.pow(exp))
-    }
     pub fn real(&self) -> Fq {
         Fq(*self.0.real())
     }
@@ -354,6 +387,13 @@ impl Fq2 {
     pub fn to_slice(self) -> [u8; 64] {
         self.0.to_slice()
     }
+    /*
+    /// Exponentiates `self` by `exp`, where `exp` is a
+    /// U256 element exponent.
+    pub fn pow(&self, exp: U256) -> Self {
+        Fq2(self.0.pow(exp))
+    }
+    */
 }
 
 impl Add<Fq2> for Fq2 {
@@ -445,6 +485,7 @@ impl G1 {
     pub fn b() -> Fq {
         Fq(G1Params::coeff_b())
     }
+    /// Attempts to convert a compressed point to an element of G1
     // SM9 dentity-based cryptographic algorithms
     // Part 1: General
     // Annex A  A.4.2
@@ -493,6 +534,7 @@ impl G1 {
 
         res
     }
+    /// Attempts to convert a uncompressed point to an element of G1
     // SM9 dentity-based cryptographic algorithms
     // Part 1: General, 6.2.8 , case 1
     pub fn from_slice(bytes: &[u8]) -> Result<Self, CurveError> {
@@ -558,6 +600,14 @@ impl Mul<Fr> for G1 {
 
     fn mul(self, other: Fr) -> G1 {
         G1(self.0 * other.0)
+    }
+}
+
+impl Mul<G1> for Fr {
+    type Output = G1;
+
+    fn mul(self, other: G1) -> G1 {
+        other * self
     }
 }
 
@@ -646,6 +696,7 @@ impl G2 {
 
         res
     }
+    /// Attempts to convert a uncompressed point to an element of G2
     // SM9 dentity-based cryptographic algorithms
     // Part 1: General, 6.2.8 , case 1
     pub fn from_slice(bytes: &[u8]) -> Result<Self, CurveError> {
@@ -715,6 +766,14 @@ impl Mul<Fr> for G2 {
     }
 }
 
+impl Mul<G2> for Fr {
+    type Output = G2;
+
+    fn mul(self, other: G2) -> G2 {
+        other * self
+    }
+}
+
 /// a multiplicative cyclic group of prime order r
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -724,6 +783,7 @@ impl Gt {
     pub fn one() -> Self {
         Gt(fields::Fq12::one())
     }
+    /// Compute exponentiation, where `exp` is a Fr element exponent.
     pub fn pow(&self, exp: Fr) -> Self {
         Gt(self.0.pow(exp.0))
     }
@@ -853,13 +913,25 @@ mod tests {
 
     #[test]
     fn test_fq_from_to_slice() {
-        let f1 = Fq::from_slice(&hex!(
-            "A5702F05 CF131530 5E2D6EB6 4B0DEB92 3DB1A0BC F0CAFF90 523AC875 4AA69820"
-        ))
-        .unwrap();
-        let s = f1.to_slice();
-        let f2 = Fq::from_slice(&s).unwrap();
-        assert_eq!(f1, f2);
+        let hex = hex!("00000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4");
+        let f1 = Fq::from_slice(&hex).unwrap();
+        let f2 = Fq::from_slice(&hex[1..]).unwrap();
+        let f3 = Fq::from_slice(&hex[2..]).unwrap();
+        let f4 = Fq::from_slice(&f3.to_slice()).unwrap();
+        assert_eq!(f1, f3);
+        assert_eq!(f2, f3);
+        assert_eq!(f4, f3);
+    }
+    #[test]
+    fn test_fr_from_to_slice() {
+        let hex = hex!("00000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4");
+        let f1 = Fr::from_slice(&hex).unwrap();
+        let f2 = Fr::from_slice(&hex[1..]).unwrap();
+        let f3 = Fr::from_slice(&hex[2..]).unwrap();
+        let f4 = Fr::from_slice(&f3.to_slice()).unwrap();
+        assert_eq!(f1, f3);
+        assert_eq!(f2, f3);
+        assert_eq!(f4, f3);
     }
     #[test]
     fn test_fq2_from_to_slice() {
@@ -908,6 +980,9 @@ mod tests {
             Fq::one(),
         );
         assert_eq!(r, ds);
+        let mut ds2 = t2 * G1::one();
+        ds2.normalize();
+        assert_eq!(r, ds2)
     }
 
     #[test]
@@ -943,6 +1018,10 @@ mod tests {
 
         println!("pub_s {:?}", pub_s);
         assert_eq!(r, pub_s);
+
+        let mut ps = ks * G2::one();
+        ps.normalize();
+        assert_eq!(ps, pub_s);
     }
 
     #[test]

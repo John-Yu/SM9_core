@@ -18,16 +18,12 @@ const SM9_LOOP_N: u128 = 0x2400000000215D93E;
 
 impl Fq12 {
     fn final_exponentiation_first_chunk(&self) -> Option<Fq12> {
-        match self.inverse() {
-            Some(b) => {
-                let a = self.frobenius_map(6);
-                let c = a * b;
-                let d = c.frobenius_map(2);
+        let b = self.inverse()?;
+        let a = self.frobenius_map(6);
+        let c = a * b;
+        let d = c.frobenius_map(2);
 
-                Some(d * c)
-            }
-            None => None,
-        }
+        Some(d * c)
     }
 
     fn final_exponentiation_last_chunk(&self) -> Fq12 {
@@ -236,15 +232,15 @@ impl G2 {
     }
     // Fast multiplication of A by q (for Trace-Zero group members only)
     // Calculate q*P. P(X,Y) -> P(X^p,Y^p))
-    fn q_power_frobenius(&self, f: &Fq2) -> Self {
-        let r = f.inverse().unwrap();
+    fn q_power_frobenius(&self, f: &Fq2) -> Option<Self> {
+        let r = f.inverse()?;
         let w = r.squared();
 
-        G2::new(
+        Some(G2::new(
             self.x().unitary_inverse() * w,
             self.y().unitary_inverse() * w * r,
             self.z().unitary_inverse(),
-        )
+        ))
     }
     fn g_line(&mut self, g2: &G2) -> (Fq2, Fq2, Fq2) {
         let lam = self.z().squared();
@@ -310,11 +306,11 @@ impl From<G2> for G2Prepared {
             }
         }
         let frob = Fq2::new(Fq::new(*SM9_PI1).unwrap(), Fq::zero());
-        let mut ka = g2.q_power_frobenius(&frob);
+        let mut ka = g2.q_power_frobenius(&frob).unwrap();
         let coeff = p.g_line(&ka);
         coeffs.push(coeff);
 
-        ka = -ka.q_power_frobenius(&frob);
+        ka = -ka.q_power_frobenius(&frob).unwrap();
         let coeff = p.g_line(&ka);
         coeffs.push(coeff);
 
