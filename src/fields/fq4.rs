@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
 use crate::fields::{FieldElement, Fq, Fq2};
@@ -21,8 +21,8 @@ impl Fq4 {
     //Algorithm 7
     pub fn scale(&self, by: &Fq2) -> Self {
         Fq4 {
-            c0: self.c0 * *by,
-            c1: self.c1 * *by,
+            c0: self.c0 * by,
+            c1: self.c1 * by,
         }
     }
 
@@ -33,6 +33,7 @@ impl Fq4 {
         }
     }
 
+    #[inline]
     pub fn mul_by_nonresidue(&self) -> Self {
         //c0 = c1 * u
         //c1 = c0
@@ -42,6 +43,7 @@ impl Fq4 {
         }
     }
 
+    #[inline]
     pub fn frobenius_map(&self, power: usize) -> Self {
         match power {
             10 => Fq4 {
@@ -103,8 +105,12 @@ impl Fq4 {
         }
     }
 
+    #[inline]
     pub fn unitary_inverse(&self) -> Fq4 {
-        Fq4::new(self.c0, -self.c1)
+        Fq4 {
+            c0: self.c0,
+            c1: -self.c1,
+        }
     }
     /// Converts an element into a byte representation in
     /// big-endian byte order.
@@ -116,7 +122,44 @@ impl Fq4 {
         res[64..].copy_from_slice(&b0);
         res
     }
+    #[inline]
+    pub fn mul_inplace(&self, other: &Fq4) -> Fq4 {
+        // Devegili OhEig Scott Dahab
+        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
+        //     Section 3 (Karatsuba), which costs 3M + 3A + 2B
+        let aa = self.c0.mul_inplace(&other.c0);
+        let bb = self.c1.mul_inplace(&other.c1);
+        Fq4 {
+            c0: aa + bb.mul_by_nonresidue(),
+            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
+        }
+    }
+    #[inline]
+    pub fn sub_inplace(&self, rhs: &Fq4) -> Fq4 {
+        Fq4 {
+            c0: self.c0.sub_inplace(&rhs.c0),
+            c1: self.c1.sub_inplace(&rhs.c1),
+        }
+    }
+    #[inline]
+    pub fn add_inplace(&self, rhs: &Fq4) -> Fq4 {
+        Fq4 {
+            c0: self.c0.add_inplace(&rhs.c0),
+            c1: self.c1.add_inplace(&rhs.c1),
+        }
+    }
+    #[inline]
+    pub fn neg_inplace(&self) -> Fq4 {
+        Fq4 {
+            c0: self.c0.neg_inplace(),
+            c1: self.c1.neg_inplace(),
+        }
+    }
 }
+
+impl_binops_additive!(Fq4, Fq4);
+impl_binops_multiplicative!(Fq4, Fq4);
+impl_binops_negative!(Fq4);
 
 impl FieldElement for Fq4 {
     fn zero() -> Self {
@@ -142,7 +185,22 @@ impl FieldElement for Fq4 {
     fn is_zero(&self) -> bool {
         self.c0.is_zero() && self.c1.is_zero()
     }
-
+    /// double this element
+    #[inline(always)]
+    fn double(&self) -> Self {
+        Fq4 {
+            c0: self.c0.double(),
+            c1: self.c1.double(),
+        }
+    }
+    /// triple this element
+    #[inline(always)]
+    fn triple(&self) -> Self {
+        Fq4 {
+            c0: self.c0.triple(),
+            c1: self.c1.triple(),
+        }
+    }
     /// Squares this element
     fn squared(&self) -> Self {
         // Devegili OhEig Scott Dahab
@@ -153,69 +211,17 @@ impl FieldElement for Fq4 {
         let v0 = a0 * a1;
         Fq4 {
             c0: (a0 + a1) * (a0 + a1.mul_by_nonresidue()) - v0 - v0.mul_by_nonresidue(),
-            c1: v0 + v0,
+            c1: v0.double(),
         }
     }
+    /// Computes the multiplicative inverse of this field element
+    /// return None in the case that this element is zero
     //"High-Speed Software Implementation of the Optimal Ate AbstractPairing over Barreto-Naehrig Curves"
     // Algorithm 23
-    fn inverse(self) -> Option<Self> {
-        if self.is_zero() {
-            None
-        } else {
-            (self.c0.squared() - self.c1.squared().mul_by_nonresidue())
-                .inverse()
-                .map(|t| Self::new(self.c0 * t, -(self.c1 * t)))
-        }
-    }
-}
-
-impl Mul for Fq4 {
-    type Output = Fq4;
-
-    fn mul(self, other: Fq4) -> Fq4 {
-        // Devegili OhEig Scott Dahab
-        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Karatsuba), which costs 3M + 3A + 2B
-        let aa = self.c0 * other.c0;
-        let bb = self.c1 * other.c1;
-
-        Fq4 {
-            c0: aa + bb.mul_by_nonresidue(),
-            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
-        }
-    }
-}
-
-impl Sub for Fq4 {
-    type Output = Fq4;
-
-    fn sub(self, other: Fq4) -> Fq4 {
-        Fq4 {
-            c0: self.c0 - other.c0,
-            c1: self.c1 - other.c1,
-        }
-    }
-}
-
-impl Add for Fq4 {
-    type Output = Fq4;
-
-    fn add(self, other: Fq4) -> Fq4 {
-        Fq4 {
-            c0: self.c0 + other.c0,
-            c1: self.c1 + other.c1,
-        }
-    }
-}
-
-impl Neg for Fq4 {
-    type Output = Fq4;
-
-    fn neg(self) -> Fq4 {
-        Fq4 {
-            c0: -self.c0,
-            c1: -self.c1,
-        }
+    fn inverse(&self) -> Option<Self> {
+        (self.c0.squared() - self.c1.squared().mul_by_nonresidue())
+            .inverse()
+            .map(|t| Self::new(self.c0 * t, -(self.c1 * t)))
     }
 }
 

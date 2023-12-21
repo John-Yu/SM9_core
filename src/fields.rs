@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 
+#[macro_use]
+mod utils;
 mod fp;
 mod fq12;
 mod fq2;
 mod fq4;
 
 use alloc::fmt::Debug;
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, Mul, MulAssign, Neg, Sub};
 use rand::Rng;
 
 use crate::u256::U256;
@@ -32,11 +34,14 @@ pub trait FieldElement:
     fn one() -> Self;
     fn random<R: Rng>(_: &mut R) -> Self;
     fn is_zero(&self) -> bool;
-    fn squared(&self) -> Self {
-        (*self) * (*self)
-    }
-    fn inverse(self) -> Option<Self>;
-    fn pow<I: Into<U256>>(&self, by: I) -> Self {
+    fn squared(&self) -> Self;
+    fn double(&self) -> Self;
+    fn triple(&self) -> Self;
+    fn inverse(&self) -> Option<Self>;
+    fn pow<I: Into<U256>>(&self, by: I) -> Self
+    where
+        for<'a> Self: MulAssign<&'a Self>,
+    {
         let mut res = Self::one();
         let mut found_one = false;
         for i in by.into().bits().skip_while(|b| !b) {
@@ -50,7 +55,7 @@ pub trait FieldElement:
             }
             res = res.squared();
             if i {
-                res = *self * res;
+                res *= self;
             }
         }
 
@@ -60,11 +65,60 @@ pub trait FieldElement:
 
 lazy_static::lazy_static! {
 
+    static ref FR: U256 = U256::from([
+        0xE56EE19CD69ECF25,
+        0x49F2934B18EA8BEE,
+        0xD603AB4FF58EC744,
+        0xB640000002A3A6F1
+    ]);
+
+    static ref FR_SQUARED: U256 = U256::from([
+        0x7598CD79CD750C35,
+        0xE4A08110BB6DAEAB,
+        0xBFEE4BAE7D78A1F9,
+        0x8894F5D163695D0E
+    ]);
+
+    static ref FR_CUBED: U256 = U256::from([
+        0xA8EA85210CE29EF9,
+        0x8BD11806993E3A54,
+        0x0DB935B5F51A6DA4,
+        0x85CB2B73F249E8EC
+    ]);
+
+    static ref FR_ONE: U256 = U256::from([
+        0x1A911E63296130DB,
+        0xB60D6CB4E7157411,
+        0x29FC54B00A7138BB,
+        0x49BFFFFFFD5C590E
+    ]);
+
     static ref FQ: U256 = U256::from([
         0xE56F9B27E351457D,
         0x21F2934B1A7AEEDB,
         0xD603AB4FF58EC745,
         0xB640000002A3A6F1
+    ]);
+
+    static ref FQ_SQUARED: U256 = U256::from([
+        0x27DEA312B417E2D2,
+        0x88F8105FAE1A5D3F,
+        0xE479B522D6706E7B,
+        0x2EA795A656F62FBD
+    ]);
+
+    static ref FQ_CUBED: U256 = U256::from([
+        0x130257769DF5827E,
+        0x36920FC0837EC76E,
+        0xCBEC24519C22A142,
+        0x219BE84A7C687090
+    ]);
+
+    static ref FQ_ONE: U256 = U256::from([
+        0x1A9064D81CAEBA83,
+        0xDE0D6CB4E5851124,
+        0x29FC54B00A7138BA,
+        0x49BFFFFFFD5C590E
     ]);
 
     pub static ref FQ_MINUS1_DIV4: Fq =
@@ -383,6 +437,14 @@ mod tests {
         let y = Fq::new(U256::from_slice(&Y).unwrap()).unwrap();
         let r = x + y;
         assert_eq!(r, Fq::new(U256::from_slice(&R_ADD).unwrap()).unwrap());
+    }
+    #[test]
+    fn test_fq_double() {
+        let mut x = Fq::new(U256::from_slice(&X).unwrap()).unwrap();
+        for _i in 1..LOOPS {
+            assert_eq!(x.double(), x + x);
+            x = x + x;
+        }
     }
 
     #[test]

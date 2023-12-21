@@ -15,7 +15,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`
 
 ```toml
 [dependencies]
-sm9_core = "0.3.3"
+sm9_core = "0.3.4"
 ```
 
 ## API
@@ -86,9 +86,9 @@ Thanks to them.
 
 | function | times |
 |:-:|:-:|
-| pairing | time:   [2.2334 ms 2.2609 ms 2.2919 ms] |
-| fast_pairing  |time:   [1.7314 ms 1.7423 ms 1.7569 ms] |
-| precomputed_pairing |time:   [1.5066 ms 1.5167 ms 1.5289 ms] |
+| pairing | time:   [2.0900 ms 2.1037 ms 2.1200 ms] |
+| fast_pairing  |time:   [1.6506 ms 1.6630 ms 1.6784 ms] |
+| precomputed_pairing |time:   [1.4681 ms 1.4853 ms 1.5064 ms] |
 
 ### Authors
 

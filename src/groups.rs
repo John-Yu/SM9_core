@@ -209,7 +209,7 @@ impl<P: GroupParams> G<P> {
                 y: self.y,
             })
         } else {
-            let zinv = self.z.inverse().unwrap();
+            let zinv = self.z.inverse()?;
             let zinv_squared = zinv.squared();
 
             Some(AffineG {
@@ -259,20 +259,17 @@ impl<P: GroupParams> GroupElement for G<P> {
         let a = self.x.squared();
         let b = self.y.squared();
         let c = b.squared();
-        let mut d = (self.x + b).squared() - a - c;
-        d = d + d;
-        let e = a + a + a;
+        let d = ((self.x + b).squared() - a - c).double();
+        let e = a.triple();
         let f = e.squared();
-        let x3 = f - (d + d);
-        let mut eight_c = c + c;
-        eight_c = eight_c + eight_c;
-        eight_c = eight_c + eight_c;
+        let x3 = f - d.double();
+        let eight_c = c.double().double().double();
         let y1z1 = self.y * self.z;
 
         G {
             x: x3,
             y: e * (d - x3) - eight_c,
-            z: y1z1 + y1z1,
+            z: y1z1.double(),
         }
     }
 }
@@ -310,7 +307,6 @@ impl<P: GroupParams> Add<G<P>> for G<P> {
         if self.is_zero() {
             return other;
         }
-
         if other.is_zero() {
             return self;
         }
@@ -324,7 +320,7 @@ impl<P: GroupParams> Add<G<P>> for G<P> {
                 let hh = h.squared();
                 let hhh = h * hh;
                 let v = self.x * hh;
-                let x = r.squared() - hhh - v - v;
+                let x = r.squared() - hhh - v.double();
                 let y = r * (v - x) - self.y * hhh;
                 let z = h;
                 G { x, y, z }
@@ -342,7 +338,7 @@ impl<P: GroupParams> Add<G<P>> for G<P> {
                 let hh = h.squared();
                 let hhh = h * hh;
                 let v = self.x * hh;
-                let x = r.squared() - hhh - v - v;
+                let x = r.squared() - hhh - v.double();
                 let y = r * (v - x) - self.y * hhh;
                 let z = self.z * h;
                 G { x, y, z }
@@ -372,7 +368,7 @@ impl<P: GroupParams> Add<G<P>> for G<P> {
                 let hh = h.squared();
                 let hhh = h * hh;
                 let v = u1 * hh;
-                let x = r.squared() - hhh - v - v;
+                let x = r.squared() - hhh - v.double();
                 let y = r * (v - x) - s1 * hhh;
                 let z = self.z * other.z * h;
                 G { x, y, z }

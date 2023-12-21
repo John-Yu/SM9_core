@@ -34,7 +34,7 @@ impl Fq12 {
 
         let e = d * b;
         let f = self.frobenius_map(1);
-        let g = *self * f;
+        let g = self * f;
         let h = g.pow(*SM9_NINE);
 
         let i = e * h;
@@ -68,7 +68,7 @@ impl Fq12 {
         let x3 = t1.frobenius_map(1);
         let mut x4 = t1;
 
-        x0 *= *self * t0;
+        x0 *= self * t0;
         x0 = x0.frobenius_map(1);
         let x5 = t1.pow(*SM9_S);
         t1 = x5.inverse().unwrap();
@@ -79,8 +79,7 @@ impl Fq12 {
         t1 = t0.frobenius_map(1);
         t0 *= t1;
         t0 = t0.squared();
-        t0 *= x4;
-        t0 *= x5;
+        t0 *= x4 * x5;
         t1 = x3 * x5;
         t1 *= t0;
         t0 *= x2;
@@ -119,8 +118,8 @@ impl G2 {
         let mut den = Fq12::zero();
 
         let t0 = self.z().squared();
-        let t1 = t0 * self.z;
-        let b1 = t1 * self.y;
+        let t1 = t0 * self.z();
+        let b1 = t1 * self.y();
 
         let t2 = b1.scale(q.y());
         let a1 = -t2;
@@ -128,11 +127,11 @@ impl G2 {
         let t1 = self.x().squared();
         let t0 = t0 * t1;
         let t0 = t0.scale(q.x());
-        let t0 = t0.tri();
+        let t0 = t0.triple();
         let a4 = t0.div2();
 
-        let t1 = t1 * self.x;
-        let t1 = t1.tri();
+        let t1 = t1 * self.x();
+        let t1 = t1.triple();
         let t1 = t1.div2();
         let t0 = self.y().squared();
         let a0 = t0 - t1;
@@ -149,30 +148,30 @@ impl G2 {
         let mut den = Fq12::zero();
 
         let t0 = p.z().squared();
-        let t1 = t0 * self.x;
-        let t0 = t0 * p.z;
+        let t1 = t0 * self.x();
+        let t0 = t0 * p.z();
 
         let t2 = self.z().squared();
-        let t3 = t2 * p.x;
-        let t2 = t2 * self.z;
+        let t3 = t2 * p.x();
+        let t2 = t2 * self.z();
 
-        let t2 = t2 * p.y;
+        let t2 = t2 * p.y();
         let t1 = t1 - t3;
-        let t1 = t1 * self.z;
+        let t1 = t1 * self.z();
 
-        let t1 = t1 * p.z;
+        let t1 = t1 * p.z();
         let t4 = t1 * t0;
         let b1 = t4;
 
-        let t1 = t1 * p.y;
-        let t3 = t0 * self.y;
+        let t1 = t1 * p.y();
+        let t3 = t0 * self.y();
         let t3 = t3 - t2;
         let t0 = t0 * t3;
         let t0 = t0.scale(q.x());
         let a4 = t0;
 
-        let t3 = t3 * p.x;
-        let t3 = t3 * p.z;
+        let t3 = t3 * p.x();
+        let t3 = t3 * p.z();
         let t1 = t1 - t3;
         let a0 = t1;
 
@@ -244,23 +243,21 @@ impl G2 {
     }
     fn g_line(&mut self, g2: &G2) -> (Fq2, Fq2, Fq2) {
         let lam = self.z().squared();
-        let c2 = self.y - (lam * self.z) * g2.y;
+        let c2 = self.y() - (lam * self.z()) * g2.y();
         *self = *self + *g2;
         let c0 = self.z;
-        let c1 = -c2 * g2.x - c0 * g2.y;
+        let c1 = -c2 * g2.x() - c0 * g2.y();
 
         (c0, c1, c2)
     }
     fn g_tangent(&mut self) -> (Fq2, Fq2, Fq2) {
-        let mut lam = self.x().squared();
-        lam = lam + lam + lam;
-        let mut extra = self.y().squared();
-        extra = extra + extra;
+        let lam = self.x().squared().triple();
+        let extra = self.y().squared().double();
         let zz = self.z().squared();
-        let c1 = lam * self.x - extra;
+        let c1 = lam * self.x() - extra;
         let c2 = -(zz * lam);
         *self = self.double();
-        let c0 = self.z * zz;
+        let c0 = self.z() * zz;
 
         (c0, c1, c2)
     }
@@ -320,7 +317,7 @@ impl From<G2> for G2Prepared {
 impl G2Prepared {
     fn get_fq12(&self, c: &(Fq2, Fq2, Fq2), t1: &Fq2, x: &Fq) -> Fq12 {
         Fq12 {
-            c0: Fq4::new(c.0 * *t1, c.1),
+            c0: Fq4::new(c.0 * t1, c.1),
             c1: Fq4::zero(),
             c2: Fq4::new(Fq2::zero(), c.2.scale(x)),
         }
@@ -334,19 +331,19 @@ impl G2Prepared {
             let c = &self.coeffs[idx];
             idx += 1;
             f = f.squared();
-            f *= self.get_fq12(c, &t1, g1.x());
+            f *= &self.get_fq12(c, &t1, g1.x());
 
             if bit(SM9_LOOP_N, i) {
                 let c = &self.coeffs[idx];
                 idx += 1;
-                f *= self.get_fq12(c, &t1, g1.x());
+                f *= &self.get_fq12(c, &t1, g1.x());
             }
         }
 
         for _ in 0..2 {
             let c = &self.coeffs[idx];
             idx += 1;
-            f *= self.get_fq12(c, &t1, g1.x());
+            f *= &self.get_fq12(c, &t1, g1.x());
         }
 
         f
@@ -382,30 +379,10 @@ lazy_static::lazy_static! {
     ]);
     // a2 = 0xd8000000019062ed 0000b98b0cb27659
     // a3 = 0x2 400000000215d941
-    static ref SM9_A2: U256 = U256::from([
-            0x0000b98b0cb27659,
-            0xd8000000019062ed,
-            0x0,
-            0x0
-        ]);
-    static ref SM9_A3: U256 = U256::from([
-        0x400000000215d941,
-        0x2,
-        0x0,
-        0x0
-    ]);
-    static ref SM9_NINE: U256 = U256::from([
-        0x9,
-        0x0,
-        0x0,
-        0x0
-    ]);
-    static ref SM9_S: U256 = U256::from([
-        0x600000000058F98A,
-        0x0,
-        0x0,
-        0x0
-    ]);
+    static ref SM9_A2: U256 = U256([0xd8000000019062ed0000b98b0cb27659, 0x0]);
+    static ref SM9_A3: U256 = U256([0x2400000000215d941, 0x0]);
+    static ref SM9_NINE: U256 = U256([0x9, 0x0]);
+    static ref SM9_S: U256 = U256([0x600000000058F98A, 0x0]);
 
 }
 

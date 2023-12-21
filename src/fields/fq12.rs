@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use core::ops::{Add, Mul, MulAssign, Neg, Sub};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
 use crate::fields::{FieldElement, Fq4};
@@ -17,7 +17,8 @@ impl Fq12 {
     pub fn new(c0: Fq4, c1: Fq4, c2: Fq4) -> Self {
         Fq12 { c0, c1, c2 }
     }
-
+    /// Multiply by quadratic nonresidue.
+    #[inline]
     pub fn mul_by_nonresidue(&self) -> Self {
         Fq12 {
             c0: self.c2.mul_by_nonresidue(),
@@ -28,12 +29,13 @@ impl Fq12 {
 
     pub fn scale(&self, by: &Fq4) -> Self {
         Fq12 {
-            c0: self.c0 * *by,
-            c1: self.c1 * *by,
-            c2: self.c2 * *by,
+            c0: self.c0 * by,
+            c1: self.c1 * by,
+            c2: self.c2 * by,
         }
     }
 
+    #[inline]
     pub fn frobenius_map(&self, power: usize) -> Self {
         match power {
             1 => Fq12 {
@@ -72,9 +74,53 @@ impl Fq12 {
         res[256..].copy_from_slice(&b0);
         res
     }
+
+    #[inline]
+    fn neg_inplace(&self) -> Fq12 {
+        Fq12 {
+            c0: self.c0.neg_inplace(),
+            c1: self.c1.neg_inplace(),
+            c2: self.c2.neg_inplace(),
+        }
+    }
+    #[inline]
+    fn add_inplace(&self, rhs: &Fq12) -> Fq12 {
+        Fq12 {
+            c0: self.c0.add_inplace(&rhs.c0),
+            c1: self.c1.add_inplace(&rhs.c1),
+            c2: self.c2.add_inplace(&rhs.c2),
+        }
+    }
+    #[inline]
+    fn sub_inplace(&self, rhs: &Fq12) -> Fq12 {
+        Fq12 {
+            c0: self.c0.sub_inplace(&rhs.c0),
+            c1: self.c1.sub_inplace(&rhs.c1),
+            c2: self.c2.sub_inplace(&rhs.c2),
+        }
+    }
+    // Multiplication and Squaring on Pairing-Friendly Fields.pdf
+    // Section 4 (Karatsuba)
+    #[inline]
+    fn mul_inplace(&self, other: &Fq12) -> Fq12 {
+        let a_a = self.c0.mul_inplace(&other.c0);
+        let b_b = self.c1.mul_inplace(&other.c1);
+        let c_c = self.c2.mul_inplace(&other.c2);
+
+        Fq12 {
+            c0: ((self.c1 + self.c2) * (other.c1 + other.c2) - b_b - c_c).mul_by_nonresidue() + a_a,
+            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - a_a - b_b + c_c.mul_by_nonresidue(),
+            c2: (self.c0 + self.c2) * (other.c0 + other.c2) - a_a + b_b - c_c,
+        }
+    }
 }
 
+impl_binops_additive!(Fq12, Fq12);
+impl_binops_multiplicative!(Fq12, Fq12);
+impl_binops_negative!(Fq12);
+
 impl FieldElement for Fq12 {
+    #[inline]
     fn zero() -> Self {
         Fq12 {
             c0: Fq4::zero(),
@@ -83,6 +129,7 @@ impl FieldElement for Fq12 {
         }
     }
 
+    #[inline]
     fn one() -> Self {
         Fq12 {
             c0: Fq4::one(),
@@ -99,18 +146,36 @@ impl FieldElement for Fq12 {
         }
     }
 
+    #[inline(always)]
     fn is_zero(&self) -> bool {
         self.c0.is_zero() && self.c1.is_zero() && self.c2.is_zero()
     }
+    /// double this element
+    #[inline(always)]
+    fn double(&self) -> Self {
+        Fq12 {
+            c0: self.c0.double(),
+            c1: self.c1.double(),
+            c2: self.c2.double(),
+        }
+    }
+    /// triple this element
+    #[inline(always)]
+    fn triple(&self) -> Self {
+        Fq12 {
+            c0: self.c0.triple(),
+            c1: self.c1.triple(),
+            c2: self.c2.triple(),
+        }
+    }
     //Multiplication and Squaring on Pairing-Friendly Fields.pdf
     // Section 4 (CH-SQR2)
+    #[inline]
     fn squared(&self) -> Self {
         let s0 = self.c0.squared();
-        let ab = self.c0 * self.c1;
-        let s1 = ab + ab;
+        let s1 = (self.c0 * self.c1).double();
         let s2 = (self.c0 - self.c1 + self.c2).squared();
-        let bc = self.c1 * self.c2;
-        let s3 = bc + bc;
+        let s3 = (self.c1 * self.c2).double();
         let s4 = self.c2.squared();
 
         Fq12 {
@@ -119,77 +184,18 @@ impl FieldElement for Fq12 {
             c2: s1 + s2 + s3 - s0 - s4,
         }
     }
+    /// Computes the multiplicative inverse of this field element
+    /// return None in the case that this element is zero
     //"High-Speed Software Implementation of the Optimal Ate AbstractPairing over Barreto-Naehrig Curves"
     // Algorithm 17
-    fn inverse(self) -> Option<Self> {
-        if self.is_zero() {
-            None
-        } else {
-            let c0 = self.c0.squared() - self.c1 * self.c2.mul_by_nonresidue();
-            let c1 = self.c2.squared().mul_by_nonresidue() - self.c0 * self.c1;
-            let c2 = self.c1.squared() - self.c0 * self.c2;
+    #[inline]
+    fn inverse(&self) -> Option<Self> {
+        let c0 = self.c0.squared() - self.c1 * self.c2.mul_by_nonresidue();
+        let c1 = self.c2.squared().mul_by_nonresidue() - self.c0 * self.c1;
+        let c2 = self.c1.squared() - self.c0 * self.c2;
 
-            ((self.c2 * c1 + self.c1 * c2).mul_by_nonresidue() + self.c0 * c0)
-                .inverse()
-                .map(|t| Self::new(t * c0, t * c1, t * c2))
-        }
-    }
-}
-
-impl Mul for Fq12 {
-    type Output = Fq12;
-    //Multiplication and Squaring on Pairing-Friendly Fields.pdf
-    // Section 4 (Karatsuba)
-    fn mul(self, other: Fq12) -> Fq12 {
-        let a_a = self.c0 * other.c0;
-        let b_b = self.c1 * other.c1;
-        let c_c = self.c2 * other.c2;
-
-        Fq12 {
-            c0: ((self.c1 + self.c2) * (other.c1 + other.c2) - b_b - c_c).mul_by_nonresidue() + a_a,
-            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - a_a - b_b + c_c.mul_by_nonresidue(),
-            c2: (self.c0 + self.c2) * (other.c0 + other.c2) - a_a + b_b - c_c,
-        }
-    }
-}
-impl MulAssign for Fq12 {
-    fn mul_assign(&mut self, rhs: Fq12) {
-        *self = *self * rhs;
-    }
-}
-
-impl Sub for Fq12 {
-    type Output = Fq12;
-
-    fn sub(self, other: Fq12) -> Fq12 {
-        Fq12 {
-            c0: self.c0 - other.c0,
-            c1: self.c1 - other.c1,
-            c2: self.c2 - other.c2,
-        }
-    }
-}
-
-impl Add for Fq12 {
-    type Output = Fq12;
-
-    fn add(self, other: Fq12) -> Fq12 {
-        Fq12 {
-            c0: self.c0 + other.c0,
-            c1: self.c1 + other.c1,
-            c2: self.c2 + other.c2,
-        }
-    }
-}
-
-impl Neg for Fq12 {
-    type Output = Fq12;
-
-    fn neg(self) -> Fq12 {
-        Fq12 {
-            c0: -self.c0,
-            c1: -self.c1,
-            c2: -self.c2,
-        }
+        ((self.c2 * c1 + self.c1 * c2).mul_by_nonresidue() + self.c0 * c0)
+            .inverse()
+            .map(|t| Self::new(t * c0, t * c1, t * c2))
     }
 }

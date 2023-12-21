@@ -1,9 +1,12 @@
 use alloc::vec::Vec;
 use core::fmt;
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::fields::{FieldElement, FQ, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8};
+use crate::fields::{
+    FieldElement, FQ, FQ_CUBED, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_CUBED,
+    FR_ONE, FR_SQUARED,
+};
 use crate::u256::U256;
 use crate::u512::U512;
 
@@ -16,7 +19,7 @@ macro_rules! field_impl {
         impl From<$name> for U256 {
             #[inline]
             fn from(mut a: $name) -> Self {
-                a.0.mul(&U256::one(), &U256::from($modulus), $inv);
+                a.0.mul(&U256::one(), &$modulus, $inv);
 
                 a.0
             }
@@ -29,7 +32,7 @@ macro_rules! field_impl {
                     (0..11)
                         .map(|_| {
                             let tmp = acc;
-                            acc = acc + Self::one();
+                            acc += Self::one();
                             tmp
                         })
                         .collect()
@@ -39,8 +42,8 @@ macro_rules! field_impl {
                 for c in s.chars() {
                     match c.to_digit(10) {
                         Some(d) => {
-                            res = res * ints[10];
-                            res = res + ints[d as usize];
+                            res *= ints[10];
+                            res += ints[d as usize];
                         }
                         None => {
                             return None;
@@ -53,8 +56,8 @@ macro_rules! field_impl {
 
             /// Converts a U256 to an Fp so long as it's below the modulus.
             pub fn new(mut a: U256) -> Option<Self> {
-                if a < U256::from($modulus) {
-                    a.mul(&U256::from($rsquared), &U256::from($modulus), $inv);
+                if a < *$modulus {
+                    a.mul(&$rsquared, &$modulus, $inv);
 
                     Some($name(a))
                 } else {
@@ -79,19 +82,19 @@ macro_rules! field_impl {
             }
             /// Converts a U256 to a Fp regardless of modulus.
             pub fn new_mul_factor(mut a: U256) -> Self {
-                a.mul(&U256::from($rsquared), &U256::from($modulus), $inv);
+                a.mul(&$rsquared, &$modulus, $inv);
                 $name(a)
             }
             /// Converts a &[u8; 64] to a Fp regardless of modulus.
             pub fn interpret(buf: &[u8; 64]) -> Self {
-                $name::new(U512::interpret(buf).divrem(&U256::from($modulus)).1).unwrap()
+                $name::new(U512::interpret(buf).divrem(&$modulus).1).unwrap()
             }
 
             /// Returns the modulus
             #[inline]
             #[allow(dead_code)]
             pub fn modulus() -> U256 {
-                U256::from($modulus)
+                *$modulus
             }
 
             pub fn raw(&self) -> &U256 {
@@ -101,82 +104,102 @@ macro_rules! field_impl {
             pub fn set_bit(&mut self, bit: usize, to: bool) {
                 self.0.set_bit(bit, to);
             }
+
+            #[inline]
+            pub fn add_inplace(&self, other: &$name) -> $name {
+                let mut a = self.0;
+                a.add(&other.0, &$modulus);
+
+                $name(a)
+            }
+            #[inline]
+            pub fn sub_inplace(&self, other: &$name) -> $name {
+                let mut a = self.0;
+                a.sub(&other.0, &$modulus);
+
+                $name(a)
+            }
+            #[inline]
+            pub fn mul_inplace(&self, other: &$name) -> $name {
+                let mut a = self.0;
+                a.mul(&other.0, &$modulus, $inv);
+
+                $name(a)
+            }
+            #[inline]
+            pub fn neg_inplace(&self) -> $name {
+                let mut a = self.0;
+                a.neg(&$modulus);
+
+                $name(a)
+            }
         }
+
+        impl_binops_additive!($name, $name);
+        impl_binops_multiplicative!($name, $name);
+        impl_binops_negative!($name);
 
         impl FieldElement for $name {
             #[inline]
             fn zero() -> Self {
-                $name(U256::from([0, 0, 0, 0]))
+                $name(U256::zero())
             }
 
             #[inline]
             fn one() -> Self {
-                $name(U256::from($one))
+                $name(*$one)
             }
 
             fn random<R: Rng>(rng: &mut R) -> Self {
-                $name(U256::random(rng, &U256::from($modulus)))
+                $name(U256::random(rng, &$modulus))
             }
 
             #[inline]
             fn is_zero(&self) -> bool {
                 self.0.is_zero()
             }
-
-            fn inverse(mut self) -> Option<Self> {
+            /// Computes the inverse of this element,
+            /// None if the element is zero.
+            fn inverse(&self) -> Option<Self> {
                 if self.is_zero() {
                     None
                 } else {
-                    self.0.invert(&U256::from($modulus));
-                    self.0
-                        .mul(&U256::from($rcubed), &U256::from($modulus), $inv);
+                    let mut a = self.0;
+                    a.invert(&$modulus);
+                    a.mul(&$rcubed, &$modulus, $inv);
 
-                    Some(self)
+                    Some(Self(a))
                 }
             }
-        }
-
-        impl Add for $name {
-            type Output = $name;
-
+            /// double this element
             #[inline]
-            fn add(mut self, other: $name) -> $name {
-                self.0.add(&other.0, &U256::from($modulus));
-
-                self
+            fn double(&self) -> Self {
+                let mut a = self.0;
+                a.mul2(&$modulus);
+                if &a >= &$modulus {
+                    a.sub(&$modulus, &$modulus);
+                }
+                $name(a)
+            }
+            /// triple this element
+            fn triple(&self) -> Self {
+                &self.double() + self
+            }
+            /// Squares this element.
+            fn squared(&self) -> Self {
+                self * self
             }
         }
 
-        impl Sub for $name {
-            type Output = $name;
-
-            #[inline]
-            fn sub(mut self, other: $name) -> $name {
-                self.0.sub(&other.0, &U256::from($modulus));
-
-                self
+        impl From<$name> for [u8; 32] {
+            fn from(value: $name) -> [u8; 32] {
+                value.to_slice()
             }
         }
 
-        impl Mul for $name {
-            type Output = $name;
-
-            #[inline]
-            fn mul(mut self, other: $name) -> $name {
-                self.0.mul(&other.0, &U256::from($modulus), $inv);
-
-                self
-            }
-        }
-
-        impl Neg for $name {
-            type Output = $name;
-
-            #[inline]
-            fn neg(mut self) -> $name {
-                self.0.neg(&U256::from($modulus));
-
-                self
+        impl<'a> From<&'a $name> for [u8; 32] {
+            fn from(value: &'a $name) -> [u8; 32] {
+                value.to_slice()
             }
         }
 
@@ -190,59 +213,19 @@ macro_rules! field_impl {
 
 field_impl!(
     Fr,
-    [
-        0xE56EE19CD69ECF25,
-        0x49F2934B18EA8BEE,
-        0xD603AB4FF58EC744,
-        0xB640000002A3A6F1
-    ],
-    [
-        0x7598CD79CD750C35,
-        0xE4A08110BB6DAEAB,
-        0xBFEE4BAE7D78A1F9,
-        0x8894F5D163695D0E
-    ],
-    [
-        0xA8EA85210CE29EF9,
-        0x8BD11806993E3A54,
-        0x0DB935B5F51A6DA4,
-        0x85CB2B73F249E8EC
-    ],
-    [
-        0x1A911E63296130DB,
-        0xB60D6CB4E7157411,
-        0x29FC54B00A7138BB,
-        0x49BFFFFFFD5C590E
-    ],
+    FR,
+    FR_SQUARED,
+    FR_CUBED,
+    FR_ONE,
     0xF590740D939A510D1D02662351974B53
 );
 
 field_impl!(
     Fq,
-    [
-        0xE56F9B27E351457D,
-        0x21F2934B1A7AEEDB,
-        0xD603AB4FF58EC745,
-        0xB640000002A3A6F1
-    ],
-    [
-        0x27DEA312B417E2D2,
-        0x88F8105FAE1A5D3F,
-        0xE479B522D6706E7B,
-        0x2EA795A656F62FBD
-    ],
-    [
-        0x130257769DF5827E,
-        0x36920FC0837EC76E,
-        0xCBEC24519C22A142,
-        0x219BE84A7C687090
-    ],
-    [
-        0x1A9064D81CAEBA83,
-        0xDE0D6CB4E5851124,
-        0x29FC54B00A7138BA,
-        0x49BFFFFFFD5C590E
-    ],
+    FQ,
+    FQ_SQUARED,
+    FQ_CUBED,
+    FQ_ONE,
     0x181AE39613C8DBAF892BC42C2F2EE42B
 );
 
@@ -260,15 +243,13 @@ impl Fq {
         let mut res = Fq::zero();
         if a1a.is_one() {
             // g^(u+1) = g^u * g
-            res = self.pow(*FQ_MINUS5_DIV8) * *self;
+            res = self.pow(*FQ_MINUS5_DIV8) * self;
         } else if (-a1a).is_one() {
             // (q-5)/8
             // 2g
-            let a = *self + *self;
-            // 4g
-            let aa = a + a;
+            let a = self.double();
             // (4g)^u
-            let b = aa.pow(*FQ_MINUS5_DIV8);
+            let b = a.double().pow(*FQ_MINUS5_DIV8);
             res = a * b;
         }
         if res.is_zero() {
@@ -281,10 +262,6 @@ impl Fq {
             }
             Some(res)
         }
-    }
-
-    pub fn tri(&self) -> Self {
-        *self + *self + *self
     }
 
     pub fn div2(mut self) -> Self {

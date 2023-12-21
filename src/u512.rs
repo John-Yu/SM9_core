@@ -12,7 +12,7 @@ use crate::u256::{Error, U256};
 /// field serialization and scalar interpretation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct U512(pub [u128; 4]);
+pub struct U512(pub(crate) [u128; 4]);
 
 impl From<[u64; 8]> for U512 {
     fn from(d: [u64; 8]) -> Self {

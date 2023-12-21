@@ -146,16 +146,6 @@ impl Fr {
     pub(crate) fn new_mul_factor(val: U256) -> Self {
         Fr(fields::Fr::new_mul_factor(val))
     }
-    /*
-    pub(crate) fn new(val: U256) -> Option<Self> {
-        fields::Fr::new(val).map(Fr)
-    }
-    /// Converts an element into a 256-bit big-endian integer(U256)
-    /// Turn into canonical form by computing: (a.R) / R = a
-    pub(crate) fn into_u256(self) -> U256 {
-        (self.0).into()
-    }
-    */
 }
 
 impl Add<Fr> for Fr {
@@ -261,7 +251,7 @@ impl Fq {
     /// Converts an element of `Fq` into a byte representation in
     /// big-endian byte order.
     pub fn to_slice(self) -> [u8; 32] {
-        self.0.to_slice()
+        self.0.into()
     }
     /// Computes the multiplicative inverse of this element,
     /// failing if the element is zero.
@@ -300,14 +290,6 @@ impl Fq {
     pub(crate) fn new_mul_factor(val: U256) -> Self {
         Fq(fields::Fq::new_mul_factor(val))
     }
-    /*
-    pub(crate) fn from_u256(u256: U256) -> Result<Self, FieldError> {
-        Ok(Fq(fields::Fq::new(u256).ok_or(FieldError::NotMember)?))
-    }
-    pub(crate) fn modulus() -> U256 {
-        fields::Fq::modulus()
-    }
-    */
 }
 
 impl Add<Fq> for Fq {
@@ -525,6 +507,23 @@ impl G1 {
     }
     /// Serializes this element into uncompressed form.
     // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 2
+    pub fn to_uncompressed(self) -> [u8; 65] {
+        let mut res = [4u8; 65];
+        res[1..].copy_from_slice(self.to_slice().as_ref());
+        res
+    }
+    /// Attempts to deserialize an uncompressed element of G1
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 2
+    pub fn from_uncompressed(bytes: &[u8]) -> Result<Self, CurveError> {
+        if bytes.len() != 65 || bytes[0] != 4 {
+            return Err(CurveError::InvalidEncoding);
+        }
+        Self::from_slice(bytes[1..].as_ref())
+    }
+    /// Serializes this element into uncompressed form.
+    // SM9 dentity-based cryptographic algorithms
     // Part 1: General, 6.2.8 , case 1
     pub fn to_slice(self) -> [u8; 64] {
         let mut res = [0u8; 64];
@@ -684,6 +683,23 @@ impl G2 {
         res[1..].copy_from_slice(&ag1.x().to_slice());
 
         res
+    }
+    /// Serializes this element into uncompressed form.
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 2
+    pub fn to_uncompressed(self) -> [u8; 129] {
+        let mut res = [4u8; 129];
+        res[1..].copy_from_slice(self.to_slice().as_ref());
+        res
+    }
+    /// Attempts to deserialize an uncompressed element of G2
+    // SM9 dentity-based cryptographic algorithms
+    // Part 1: General, 6.2.8 , case 2
+    pub fn from_uncompressed(bytes: &[u8]) -> Result<Self, CurveError> {
+        if bytes.len() != 129 || bytes[0] != 4 {
+            return Err(CurveError::InvalidEncoding);
+        }
+        Self::from_slice(bytes[1..].as_ref())
     }
     /// Serializes this element into uncompressed form.
     // SM9 dentity-based cryptographic algorithms

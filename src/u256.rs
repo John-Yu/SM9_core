@@ -10,7 +10,7 @@ use crate::u512::U512;
 /// arithmetic.
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
-pub struct U256(pub [u128; 2]);
+pub struct U256(pub(crate) [u128; 2]);
 
 impl From<[u64; 4]> for U256 {
     fn from(d: [u64; 4]) -> Self {
@@ -112,15 +112,13 @@ impl U256 {
 
     // self = self + 2^256 (mod `modulo`)
     fn add_carry(&mut self, modulo: &U256) {
-        let mut a = U256::from([
-            0xFFFFFFFFFFFFFFFF,
-            0xFFFFFFFFFFFFFFFF,
-            0xFFFFFFFFFFFFFFFF,
-            0xFFFFFFFFFFFFFFFF,
+        let mut a = U256([
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
         ]);
         // TODO: need  self + 2^256 < modulo * 2
         sub_noborrow(&mut a.0, &modulo.0);
-        add_nocarry(&mut self.0, &U256::one().0); //&[1,0]);
+        add_nocarry(&mut self.0, &U256::one().0);
         add_nocarry(&mut self.0, &a.0);
     }
 

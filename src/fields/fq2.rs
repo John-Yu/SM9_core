@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
 use crate::fields::{FieldElement, Fq, FQ};
@@ -22,15 +22,20 @@ impl Fq2 {
     //Algorithm 7
     pub fn scale(&self, by: &Fq) -> Self {
         Fq2 {
-            c0: self.c0 * *by,
-            c1: self.c1 * *by,
+            c0: self.c0 * by,
+            c1: self.c1 * by,
         }
     }
 
+    #[inline(always)]
     pub fn unitary_inverse(&self) -> Fq2 {
-        Fq2::new(self.c0, -self.c1)
+        Fq2 {
+            c0: self.c0,
+            c1: -self.c1,
+        }
     }
 
+    #[inline(always)]
     pub fn mul_by_nonresidue(&self) -> Self {
         //c0 = -2 * c1
         //c1 = c0
@@ -40,13 +45,7 @@ impl Fq2 {
         }
     }
 
-    pub fn tri(&self) -> Self {
-        Fq2 {
-            c0: self.c0.tri(),
-            c1: self.c1.tri(),
-        }
-    }
-
+    #[inline(always)]
     pub fn div2(&self) -> Self {
         Fq2 {
             c0: self.c0.div2(),
@@ -77,7 +76,7 @@ impl Fq2 {
         let a = self.c0;
         let bb = b.squared();
         let aa = a.squared();
-        let u = aa + bb + bb;
+        let u = aa + bb.double();
         let mut y = Fq::zero();
         u.sqrt().and_then(|w| {
             let v = (a + w).div2();
@@ -86,16 +85,14 @@ impl Fq2 {
             });
             if m.is_none() {
                 let v = (a - w).div2();
-                v.sqrt().map(|t| {
-                    y = t;
-                })?;
+                y = v.sqrt()?;
             }
-            let y2 = y + y;
+            let y2 = y.double();
             let z1 = if y.is_zero() {
                 // i^2 = -2
                 w.div2().sqrt()?
             } else {
-                b * y2.inverse().unwrap()
+                b * y2.inverse()?
             };
             let z0 = y;
             Some(Self::new(z0, z1))
@@ -132,9 +129,49 @@ impl Fq2 {
 
         Ok(Fq2 { c0, c1 })
     }
+    #[inline]
+    pub fn neg_inplace(&self) -> Fq2 {
+        Fq2 {
+            c0: self.c0.neg_inplace(),
+            c1: self.c1.neg_inplace(),
+        }
+    }
+    #[inline]
+    pub fn sub_inplace(&self, rhs: &Fq2) -> Fq2 {
+        Fq2 {
+            c0: self.c0.sub_inplace(&rhs.c0),
+            c1: self.c1.sub_inplace(&rhs.c1),
+        }
+    }
+
+    #[inline]
+    pub fn add_inplace(&self, rhs: &Fq2) -> Fq2 {
+        Fq2 {
+            c0: self.c0.add_inplace(&rhs.c0),
+            c1: self.c1.add_inplace(&rhs.c1),
+        }
+    }
+    #[inline]
+    pub fn mul_inplace(&self, other: &Fq2) -> Fq2 {
+        // Devegili OhEig Scott Dahab
+        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
+        //     Section 3 (Karatsuba), which costs 3M + 2A + 4B
+        let aa = self.c0.mul_inplace(&other.c0);
+        let bb = self.c1.mul_inplace(&other.c1);
+
+        Fq2 {
+            c0: aa - bb.double(),
+            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
+        }
+    }
 }
 
+impl_binops_additive!(Fq2, Fq2);
+impl_binops_multiplicative!(Fq2, Fq2);
+impl_binops_negative!(Fq2);
+
 impl FieldElement for Fq2 {
+    #[inline]
     fn zero() -> Self {
         Fq2 {
             c0: Fq::zero(),
@@ -142,6 +179,7 @@ impl FieldElement for Fq2 {
         }
     }
 
+    #[inline]
     fn one() -> Self {
         Fq2 {
             c0: Fq::one(),
@@ -156,8 +194,25 @@ impl FieldElement for Fq2 {
         }
     }
     /// Returns true if element is zero.
+    #[inline(always)]
     fn is_zero(&self) -> bool {
         self.c0.is_zero() && self.c1.is_zero()
+    }
+    /// double this element
+    #[inline(always)]
+    fn double(&self) -> Self {
+        Fq2 {
+            c0: self.c0.double(),
+            c1: self.c1.double(),
+        }
+    }
+    /// triple this element
+    #[inline(always)]
+    fn triple(&self) -> Self {
+        Fq2 {
+            c0: self.c0.triple(),
+            c1: self.c1.triple(),
+        }
     }
     /// Squares this element
     fn squared(&self) -> Self {
@@ -168,71 +223,18 @@ impl FieldElement for Fq2 {
         let a1 = self.c1;
         let v0 = a0 * a1;
         Fq2 {
-            c0: (a0 + a1) * (a0 - a1 - a1) + v0,
-            c1: v0 + v0,
+            c0: (a0 + a1) * (a0 - a1.double()) + v0,
+            c1: v0.double(),
         }
     }
-
-    fn inverse(self) -> Option<Self> {
+    /// Computes the multiplicative inverse of this field element
+    /// return None in the case that this element is zero
+    fn inverse(&self) -> Option<Self> {
         // "High-Speed Software Implementation of the Optimal Ate Pairing
         // over Barreto–Naehrig Curves"; Algorithm 8
-        if self.is_zero() {
-            None
-        } else {
-            //  t = (c[0]^2 + 2 * c[1]^2)^-1
-            (self.c0.squared() + self.c1.squared() + self.c1.squared())
-                .inverse()
-                .map(|t| Self::new(self.c0 * t, -(self.c1 * t)))
-        }
-    }
-}
-
-impl Mul for Fq2 {
-    type Output = Fq2;
-
-    fn mul(self, other: Fq2) -> Fq2 {
-        // Devegili OhEig Scott Dahab
-        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Karatsuba), which costs 3M + 2A + 4B
-        let aa = self.c0 * other.c0;
-        let bb = self.c1 * other.c1;
-
-        Fq2 {
-            c0: aa - bb - bb,
-            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
-        }
-    }
-}
-
-impl Sub for Fq2 {
-    type Output = Fq2;
-
-    fn sub(self, other: Fq2) -> Fq2 {
-        Fq2 {
-            c0: self.c0 - other.c0,
-            c1: self.c1 - other.c1,
-        }
-    }
-}
-
-impl Add for Fq2 {
-    type Output = Fq2;
-
-    fn add(self, other: Fq2) -> Fq2 {
-        Fq2 {
-            c0: self.c0 + other.c0,
-            c1: self.c1 + other.c1,
-        }
-    }
-}
-
-impl Neg for Fq2 {
-    type Output = Fq2;
-
-    fn neg(self) -> Fq2 {
-        Fq2 {
-            c0: -self.c0,
-            c1: -self.c1,
-        }
+        //  t = (c[0]^2 + 2 * c[1]^2)^-1
+        (self.c0.squared() + self.c1.squared().double())
+            .inverse()
+            .map(|t| Self::new(self.c0 * t, -(self.c1 * t)))
     }
 }

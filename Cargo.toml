@@ -1,6 +1,6 @@
 [package]
 name = "sm9_core"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 authors = ["John Yu <cb8866@sina.com>"]
 description = "SM9, identity-based cryptography"
