@@ -15,7 +15,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`
 
 ```toml
 [dependencies]
-sm9_core = "0.3.4"
+sm9_core = "0.3.5"
 ```
 
 ## API
@@ -75,7 +75,7 @@ Copyright 2023 [John-Yu](https://github.com/John-Yu).
 
 ### Thanks
 
-The fields and groups algorithms come from [zcash-bn](https://github.com/zcash-hackworks/bn), and pairing algorithms come from [GmSSL](https://github.com/guanzhi/GmSSL).
+The fields and groups algorithms come from [zcash-bn](https://github.com/zcash-hackworks/bn) and [bls12_381](https://github.com/zkcrypto/bls12_381), and pairing algorithms come from [GmSSL](https://github.com/guanzhi/GmSSL).
 The fast_pairing algorithms come from [MIRACL](https://github.com/miracl/MIRACL),  it is 23% faster than pairing().
 
 Thanks to them.
@@ -86,9 +86,9 @@ Thanks to them.
 
 | function | times |
 |:-:|:-:|
-| pairing | time:   [2.0900 ms 2.1037 ms 2.1200 ms] |
-| fast_pairing  |time:   [1.6506 ms 1.6630 ms 1.6784 ms] |
-| precomputed_pairing |time:   [1.4681 ms 1.4853 ms 1.5064 ms] |
+| pairing | time:   [1.7508 ms 1.7713 ms 1.7957 ms] |
+| fast_pairing  |time:   [1.3401 ms 1.3478 ms 1.3562 ms] |
+| precomputed_pairing |time:   [1.1537 ms 1.1599 ms 1.1680 ms] |
 
 ### Authors
 

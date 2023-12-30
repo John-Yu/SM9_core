@@ -3,6 +3,7 @@ use core::fmt;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
+use crate::arith::{adc, mac_with_carry};
 use crate::fields::{
     FieldElement, FQ, FQ_CUBED, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_CUBED,
     FR_ONE, FR_SQUARED,
@@ -14,7 +15,7 @@ macro_rules! field_impl {
     ($name:ident, $modulus:expr, $rsquared:expr, $rcubed:expr, $one:expr, $inv:expr) => {
         #[derive(Copy, Clone, PartialEq, Eq)]
         #[repr(C)]
-        pub struct $name(U256);
+        pub struct $name(pub(crate) U256);
 
         impl From<$name> for U256 {
             #[inline]
@@ -271,6 +272,67 @@ impl Fq {
     /// Returns true if element is one.
     pub fn is_one(&self) -> bool {
         *self == Self::one()
+    }
+    /// Returns `c = a.zip(b).fold(0, |acc, (a_i, b_i)| acc + a_i * b_i)`.
+    ///
+    /// Implements Algorithm 2 from Patrick Longa's
+    /// [ePrint 2022-367](https://eprint.iacr.org/2022/367) $3.
+    #[inline]
+    pub(crate) fn sum_of_products<const T: usize>(a: [Fq; T], b: [Fq; T]) -> Fq {
+        // For a single `a x b` multiplication, operand scanning (schoolbook) takes each
+        // limb of `a` in turn, and multiplies it by all of the limbs of `b` to compute
+        // the result as a double-width intermediate representation, which is then fully
+        // reduced at the end. Here however we have pairs of multiplications (a_i, b_i),
+        // the results of which are summed.
+        //
+        // The intuition for this algorithm is two-fold:
+        // - We can interleave the operand scanning for each pair, by processing the jth
+        //   limb of each `a_i` together. As these have the same offset within the overall
+        //   operand scanning flow, their results can be summed directly.
+        // - We can interleave the multiplication and reduction steps, resulting in a
+        //   single bitshift by the limb size after each iteration. This means we only
+        //   need to store a single extra limb overall, instead of keeping around all the
+        //   intermediate results and eventually having twice as many limbs.
+
+        // Algorithm 2, line 2
+        let (u0, u1, u2) = (0..2).fold((0, 0, 0), |(u0, u1, u2), j| {
+            // Algorithm 2, line 3
+            // For each pair in the overall sum of products:
+            let (t0, t1, t2, t3) = (0..T).fold((u0, u1, u2, 0), |(t0, t1, t2, t3), i| {
+                // Compute digit_j x row and accumulate into `u`.
+                let mut carry = 0u128;
+                let t0 = mac_with_carry(t0, a[i].0 .0[j], b[i].0 .0[0], &mut carry);
+                let t1 = mac_with_carry(t1, a[i].0 .0[j], b[i].0 .0[1], &mut carry);
+                let t2 = adc(t2, 0, &mut carry);
+                let t3 = adc(t3, 0, &mut carry);
+                (t0, t1, t2, t3)
+            });
+            // Algorithm 2, lines 4-5
+            // This is a single step of the usual Montgomery reduction process.
+            let q = t0.wrapping_mul(0x181AE39613C8DBAF892BC42C2F2EE42B);
+            let mut carry = 0u128;
+            mac_with_carry(t0, q, FQ.0[0], &mut carry);
+            let r1 = mac_with_carry(t1, q, FQ.0[1], &mut carry);
+            let r2 = adc(t2, 0, &mut carry);
+            let r3 = adc(t3, 0, &mut carry);
+            (r1, r2, r3)
+        });
+        let mut u = U256([u0, u1]);
+        if u2 != 0 {
+            // has carry
+            // println!("sum_of_products,overflow {:?}", u2);
+            for _ in 0..u2 {
+                if &u >= &FQ {
+                    u.sub(&FQ, &FQ);
+                }
+                u.add_carry(&FQ);
+            }
+        }
+        // to ensure the output is in range.
+        if &u >= &FQ {
+            u.sub(&FQ, &FQ);
+        }
+        Fq(u)
     }
 }
 

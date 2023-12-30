@@ -1,5 +1,5 @@
 // import commonly used items from the prelude:
-use hex_literal::hex;
+//use hex_literal::hex;
 use rand::prelude::*;
 use sm9_core::*;
 
@@ -181,4 +181,11 @@ fn test_g2_uncompress() {
     let g1 = G2::from_slice(&c0).unwrap();
 
     assert_eq!(g, g1);
+}
+#[test]
+fn test_fr_from_str() {
+    let a = Fr::from_str("1024").unwrap();
+    let b = Fr::try_from(hex!("04 00").as_ref()).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(a + b, b + a);
 }

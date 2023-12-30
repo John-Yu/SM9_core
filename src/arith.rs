@@ -87,29 +87,29 @@ pub fn sub_noborrow(a: &mut [u128; 2], b: &[u128; 2]) {
     debug_assert!(0 == borrow);
 }
 
+#[inline]
+//a + b * c + carry,  return low u128, carry is the high u128
+pub(crate) fn mac_with_carry(a: u128, b: u128, c: u128, carry: &mut u128) -> u128 {
+    let (b_hi, b_lo) = split_u128(b);
+    let (c_hi, c_lo) = split_u128(c);
+
+    let (a_hi, a_lo) = split_u128(a);
+    let (carry_hi, carry_lo) = split_u128(*carry);
+    let (x_hi, x_lo) = split_u128(b_lo * c_lo + a_lo + carry_lo);
+    let (y_hi, y_lo) = split_u128(b_lo * c_hi);
+    let (z_hi, z_lo) = split_u128(b_hi * c_lo);
+    // Brackets to allow better ILP
+    let (r_hi, r_lo) = split_u128((x_hi + y_lo) + (z_lo + a_hi) + carry_hi);
+
+    *carry = (b_hi * c_hi) + r_hi + y_hi + z_hi;
+
+    combine_u128(r_lo, x_lo)
+}
+
 // TODO: Make `from_index` a const param
 // return true if has carry
 #[inline(always)]
 pub fn mac_digit(from_index: usize, acc: &mut [u128; 4], b: &[u128; 2], c: u128) -> bool {
-    #[inline]
-    //a + b * c + carry,  return low u128, carry is the high u128
-    fn mac_with_carry(a: u128, b: u128, c: u128, carry: &mut u128) -> u128 {
-        let (b_hi, b_lo) = split_u128(b);
-        let (c_hi, c_lo) = split_u128(c);
-
-        let (a_hi, a_lo) = split_u128(a);
-        let (carry_hi, carry_lo) = split_u128(*carry);
-        let (x_hi, x_lo) = split_u128(b_lo * c_lo + a_lo + carry_lo);
-        let (y_hi, y_lo) = split_u128(b_lo * c_hi);
-        let (z_hi, z_lo) = split_u128(b_hi * c_lo);
-        // Brackets to allow better ILP
-        let (r_hi, r_lo) = split_u128((x_hi + y_lo) + (z_lo + a_hi) + carry_hi);
-
-        *carry = (b_hi * c_hi) + r_hi + y_hi + z_hi;
-
-        combine_u128(r_lo, x_lo)
-    }
-
     if c == 0 {
         return false;
     }

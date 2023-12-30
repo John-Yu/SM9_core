@@ -9,8 +9,8 @@ use crate::u256::U256;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct Fq4 {
-    c0: Fq2,
-    c1: Fq2,
+    pub(crate) c0: Fq2,
+    pub(crate) c1: Fq2,
 }
 
 impl Fq4 {
@@ -122,7 +122,54 @@ impl Fq4 {
         res[64..].copy_from_slice(&b0);
         res
     }
+    /// Returns `c = self * b` ,only use for b.c0 == 0
+    pub fn mul_1(&self, b: &Fq4) -> Fq4 {
+        let bb = self.c1.mul_inplace(&b.c1);
+        let ab = self.c0.mul_inplace(&b.c1);
+        Fq4 {
+            c0: bb.mul_by_nonresidue(),
+            c1: ab,
+        }
+    }
+    /// Returns `c = self * b`.
+    ///
+    /// Implements the full-tower interleaving strategy from
+    /// [ePrint 2022-376](https://eprint.iacr.org/2022/367).
     #[inline]
+    pub fn mul_inplace(&self, b: &Fq4) -> Fq4 {
+        //c0,0 =a0,0b0,0 - 2a0,1b0,1 - 2a1,0b1,1 - 2a1,1b1,0
+        //c0,1 =a0,0b0,1 + a0,1b0,0 + a1,0b1,0 - 2a1,1b1,1
+        //c1,0 =a0,0b1,0 − 2a0,1b1,1 + a1,0b0,0 − 2a1,1b0,1
+        //c1,1 =a0,0b1,1 + a0,1b1,0 + a1,0b0,1 + a1,1b0,0
+        // Each of these is a "sum of products", which we can compute efficiently.
+
+        let a = self;
+        let a01d = -a.c0.c1.double();
+        let a11d = -a.c1.c1.double();
+        Fq4 {
+            c0: Fq2 {
+                c0: Fq::sum_of_products(
+                    [a.c0.c0, a01d, -a.c1.c0.double(), a11d],
+                    [b.c0.c0, b.c0.c1, b.c1.c1, b.c1.c0],
+                ),
+                c1: Fq::sum_of_products(
+                    [a.c0.c0, a.c0.c1, a.c1.c0, a11d],
+                    [b.c0.c1, b.c0.c0, b.c1.c0, b.c1.c1],
+                ),
+            },
+            c1: Fq2 {
+                c0: Fq::sum_of_products(
+                    [a.c0.c0, a01d, a.c1.c0, a11d],
+                    [b.c1.c0, b.c1.c1, b.c0.c0, b.c0.c1],
+                ),
+                c1: Fq::sum_of_products(
+                    [a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1],
+                    [b.c1.c1, b.c1.c0, b.c0.c1, b.c0.c0],
+                ),
+            },
+        }
+    }
+    /*
     pub fn mul_inplace(&self, other: &Fq4) -> Fq4 {
         // Devegili OhEig Scott Dahab
         //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
@@ -134,6 +181,7 @@ impl Fq4 {
             c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
         }
     }
+    */
     #[inline]
     pub fn sub_inplace(&self, rhs: &Fq4) -> Fq4 {
         Fq4 {

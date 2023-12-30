@@ -111,7 +111,7 @@ impl U256 {
     }
 
     // self = self + 2^256 (mod `modulo`)
-    fn add_carry(&mut self, modulo: &U256) {
+    pub(crate) fn add_carry(&mut self, modulo: &U256) {
         let mut a = U256([
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,

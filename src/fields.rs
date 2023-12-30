@@ -137,6 +137,7 @@ lazy_static::lazy_static! {
 #[cfg(test)]
 mod tests {
     use crate::u512::U512;
+    use fp::Fq;
     use hex_literal::hex;
 
     use super::*;
@@ -396,6 +397,33 @@ mod tests {
         assert_eq!(a, Fq::one());
         let a = Fq::from_str("1").unwrap();
         assert_eq!(a, Fq::one());
+    }
+    #[test]
+    fn test_sum_of_products() {
+        use rand::{rngs::StdRng, SeedableRng};
+        let seed = [
+            0, 0, 0, 0, 0, 0, 64, 13, // 103245
+            0, 0, 0, 0, 0, 0, 176, 2, // 191922
+            0, 0, 0, 0, 0, 0, 0, 13, // 1293
+            0, 0, 0, 0, 0, 0, 96, 7u8, // 192103
+        ];
+        let mut rng = StdRng::from_seed(seed);
+        for _ in 0..500 {
+            let a1 = Fq::random(&mut rng);
+            let a2 = Fq::random(&mut rng);
+            let a3 = Fq::random(&mut rng);
+            let a4 = Fq::random(&mut rng);
+            let b1 = Fq::random(&mut rng);
+            let b2 = Fq::random(&mut rng);
+            let b3 = Fq::random(&mut rng);
+            let b4 = Fq::random(&mut rng);
+            let c1 = Fq::sum_of_products(
+                [a1, a2, a3, a4, a1, a2, a3, a4],
+                [b1, b2, b3, b4, b1, b2, b3, b4],
+            );
+            let c2 = a1 * b1 + a2 * b2 + a3 * b3 + a4 * b4;
+            assert_eq!(c1, c2.double());
+        }
     }
 
     const X: [u8; 32] =

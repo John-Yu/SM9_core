@@ -25,13 +25,39 @@ mod u256;
 mod u512;
 
 use alloc::fmt::Debug;
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
 use crate::fields::FieldElement;
 use crate::groups::{G1Params, G2Params, GroupElement, GroupParams};
 pub use crate::pairings::G2Prepared;
 use crate::u256::U256;
+pub use core::str::FromStr;
+pub use hex_literal::hex;
+
+#[derive(Debug)]
+pub enum FieldError {
+    InvalidSliceLength,
+    InvalidU512Encoding,
+    NotMember,
+    InvalidDecimalString,
+}
+
+#[derive(Debug)]
+pub enum CurveError {
+    InvalidEncoding,
+    NotMember,
+    Field(FieldError),
+    ToAffineConversion,
+}
+
+pub use crate::groups::Error as GroupError;
+
+impl From<FieldError> for CurveError {
+    fn from(fe: FieldError) -> Self {
+        CurveError::Field(fe)
+    }
+}
 
 /// Represents an element of the finite field F<sub>r</sub>
 // where r = 0xB640000002A3A6F1D603AB4FF58EC74449F2934B18EA8BEEE56EE19CD69ECF25
@@ -75,11 +101,6 @@ use crate::u256::U256;
 pub struct Fr(pub(crate) fields::Fr);
 
 impl Fr {
-    /// Attempts to convert a decimal base string to a element of `Fr`
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        fields::Fr::from_str(s).map(Fr)
-    }
     /// Attempts to convert a big-endian byte slice
     /// into an element of `Fr`, slice's length must be in [1, 64]
     pub fn from_slice(hex: &[u8]) -> Option<Self> {
@@ -146,62 +167,56 @@ impl Fr {
     pub(crate) fn new_mul_factor(val: U256) -> Self {
         Fr(fields::Fr::new_mul_factor(val))
     }
-}
-
-impl Add<Fr> for Fr {
-    type Output = Fr;
     /// Adds this element to another element.
-    fn add(self, other: Fr) -> Fr {
-        Fr(self.0 + other.0)
+    fn add_inplace(&self, other: &Fr) -> Fr {
+        Fr(self.0.add(&other.0))
     }
-}
-
-impl Sub<Fr> for Fr {
-    type Output = Fr;
     /// Subtracts another element from this element.
-    fn sub(self, other: Fr) -> Fr {
-        Fr(self.0 - other.0)
+    fn sub_inplace(&self, other: &Fr) -> Fr {
+        Fr(self.0.sub(&other.0))
     }
-}
-
-impl Neg for Fr {
-    type Output = Fr;
-    /// Negates this element.
-    fn neg(self) -> Fr {
-        Fr(-self.0)
-    }
-}
-
-impl Mul for Fr {
-    type Output = Fr;
     /// Multiplies this element by another element
-    fn mul(self, other: Fr) -> Fr {
-        Fr(self.0 * other.0)
+    fn mul_inplace(&self, other: &Fr) -> Fr {
+        Fr(self.0.mul(&other.0))
+    }
+    /// Negates this element.
+    fn neg_inplace(&self) -> Fr {
+        Fr(self.0.neg())
     }
 }
 
-#[derive(Debug)]
-pub enum FieldError {
-    InvalidSliceLength,
-    InvalidU512Encoding,
-    NotMember,
-}
-
-#[derive(Debug)]
-pub enum CurveError {
-    InvalidEncoding,
-    NotMember,
-    Field(FieldError),
-    ToAffineConversion,
-}
-
-impl From<FieldError> for CurveError {
-    fn from(fe: FieldError) -> Self {
-        CurveError::Field(fe)
+impl FromStr for Fr {
+    type Err = FieldError;
+    /// Attempts to convert a decimal base string to a element of `Fr`
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fields::Fr::from_str(s)
+            .map(Fr)
+            .ok_or(FieldError::InvalidDecimalString)
     }
 }
 
-pub use crate::groups::Error as GroupError;
+impl From<Fr> for [u8; 32] {
+    fn from(value: Fr) -> Self {
+        value.to_slice()
+    }
+}
+impl<'a> From<&'a Fr> for [u8; 32] {
+    fn from(value: &'a Fr) -> [u8; 32] {
+        value.to_slice()
+    }
+}
+
+impl TryFrom<&[u8]> for Fr {
+    type Error = FieldError;
+
+    fn try_from(hex: &[u8]) -> Result<Self, Self::Error> {
+        Fr::from_slice(hex).ok_or(FieldError::InvalidSliceLength)
+    }
+}
+
+impl_binops_additive!(Fr, Fr);
+impl_binops_multiplicative!(Fr, Fr);
+impl_binops_negative!(Fr);
 
 /// Represents an element of the finite field F<sub>q</sub>
 // where q = 0xB640000002A3A6F1D603AB4FF58EC74521F2934B1A7AEEDBE56F9B27E351457D
@@ -211,11 +226,6 @@ pub use crate::groups::Error as GroupError;
 pub struct Fq(fields::Fq);
 
 impl Fq {
-    /// Attempts to convert a decimal base string to a element of `Fq`
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        fields::Fq::from_str(s).map(Fq)
-    }
     /// Attempts to convert a big-endian byte slice
     /// into an element of `Fq`, slice's length must be in [1, 64]
     pub fn from_slice(hex: &[u8]) -> Option<Self> {
@@ -290,39 +300,48 @@ impl Fq {
     pub(crate) fn new_mul_factor(val: U256) -> Self {
         Fq(fields::Fq::new_mul_factor(val))
     }
-}
-
-impl Add<Fq> for Fq {
-    type Output = Fq;
-
-    fn add(self, other: Fq) -> Fq {
-        Fq(self.0 + other.0)
+    fn add_inplace(&self, other: &Fq) -> Fq {
+        Fq(self.0.add(&other.0))
+    }
+    fn sub_inplace(&self, other: &Fq) -> Fq {
+        Fq(self.0.sub(&other.0))
+    }
+    fn mul_inplace(&self, other: &Fq) -> Fq {
+        Fq(self.0.mul(&other.0))
+    }
+    fn neg_inplace(&self) -> Fq {
+        Fq(self.0.neg())
     }
 }
 
-impl Sub<Fq> for Fq {
-    type Output = Fq;
-
-    fn sub(self, other: Fq) -> Fq {
-        Fq(self.0 - other.0)
+impl FromStr for Fq {
+    type Err = FieldError;
+    /// Attempts to convert a decimal base string to a element of `Fq`
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fields::Fq::from_str(s)
+            .map(Fq)
+            .ok_or(FieldError::InvalidDecimalString)
     }
 }
 
-impl Neg for Fq {
-    type Output = Fq;
-
-    fn neg(self) -> Fq {
-        Fq(-self.0)
+impl From<Fq> for [u8; 32] {
+    fn from(value: Fq) -> Self {
+        value.to_slice()
     }
 }
 
-impl Mul for Fq {
-    type Output = Fq;
+impl TryFrom<&[u8]> for Fq {
+    type Error = FieldError;
 
-    fn mul(self, other: Fq) -> Fq {
-        Fq(self.0 * other.0)
+    fn try_from(hex: &[u8]) -> Result<Self, Self::Error> {
+        Fq::from_slice(hex).ok_or(FieldError::InvalidSliceLength)
     }
 }
+
+impl_binops_additive!(Fq, Fq);
+impl_binops_multiplicative!(Fq, Fq);
+impl_binops_negative!(Fq);
+
 /// Represents an element of the finite field F<sub>q</sub>2
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -359,56 +378,44 @@ impl Fq2 {
     /// Attempts to convert a big-endian byte representation of
     /// a field element into an element of `Fq2`,
     pub fn from_slice(hex: &[u8]) -> Option<Self> {
-        fields::Fq2::from_slice(hex)
-            .map(Fq2)
-            .map_err(|_| FieldError::InvalidSliceLength)
-            .ok()
+        fields::Fq2::from_slice(hex).map(Fq2).ok()
     }
     /// Converts an element into a slice of bytes in
     /// big-endian byte order.
     pub fn to_slice(self) -> [u8; 64] {
         self.0.to_slice()
     }
-    /*
-    /// Exponentiates `self` by `exp`, where `exp` is a
-    /// U256 element exponent.
-    pub fn pow(&self, exp: U256) -> Self {
-        Fq2(self.0.pow(exp))
-    }
-    */
-}
-
-impl Add<Fq2> for Fq2 {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
+    fn add_inplace(&self, other: &Self) -> Self {
         Fq2(self.0 + other.0)
     }
-}
-
-impl Sub<Fq2> for Fq2 {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
+    fn sub_inplace(&self, other: &Self) -> Self {
         Fq2(self.0 - other.0)
     }
-}
-
-impl Neg for Fq2 {
-    type Output = Self;
-
-    fn neg(self) -> Self {
+    fn mul_inplace(&self, other: &Self) -> Self {
+        Fq2(self.0 * other.0)
+    }
+    fn neg_inplace(&self) -> Self {
         Fq2(-self.0)
     }
 }
 
-impl Mul for Fq2 {
-    type Output = Self;
-
-    fn mul(self, other: Self) -> Self {
-        Fq2(self.0 * other.0)
+impl From<Fq2> for [u8; 64] {
+    fn from(value: Fq2) -> Self {
+        value.to_slice()
     }
 }
+
+impl TryFrom<&[u8]> for Fq2 {
+    type Error = FieldError;
+
+    fn try_from(hex: &[u8]) -> Result<Self, Self::Error> {
+        Fq2::from_slice(hex).ok_or(FieldError::InvalidSliceLength)
+    }
+}
+
+impl_binops_additive!(Fq2, Fq2);
+impl_binops_multiplicative!(Fq2, Fq2);
+impl_binops_negative!(Fq2);
 
 pub trait Group:
     Send

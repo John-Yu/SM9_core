@@ -10,8 +10,8 @@ use crate::u512::U512;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(C)]
 pub struct Fq2 {
-    c0: Fq,
-    c1: Fq,
+    pub(crate) c0: Fq,
+    pub(crate) c1: Fq,
 }
 
 impl Fq2 {
@@ -40,7 +40,7 @@ impl Fq2 {
         //c0 = -2 * c1
         //c1 = c0
         Fq2 {
-            c0: -(self.c1 + self.c1),
+            c0: -self.c1.double(),
             c1: self.c0,
         }
     }
@@ -151,8 +151,30 @@ impl Fq2 {
             c1: self.c1.add_inplace(&rhs.c1),
         }
     }
+    /// Returns `c = self * b`.
+    ///
+    /// Implements the full-tower interleaving strategy from
+    /// [ePrint 2022-376](https://eprint.iacr.org/2022/367).
     #[inline]
-    pub fn mul_inplace(&self, other: &Fq2) -> Fq2 {
+    pub fn mul_inplace(&self, b: &Fq2) -> Fq2 {
+        // F_{p^2} x F_{p^2} multiplication implemented with operand scanning (schoolbook)
+        // computes the result as:
+        //
+        //   a·b = (a_0 b_0 + a_1 b_1 β) + (a_0 b_1 + a_1 b_0)i
+        //
+        // In SM9's F_{p^2}, our β is -2, so the resulting F_{p^2} element is:
+        //
+        //   c_0 = a_0 b_0 - 2 a_1 b_1
+        //   c_1 = a_0 b_1 + a_1 b_0
+        //
+        // Each of these is a "sum of products", which we can compute efficiently.
+
+        let a = self;
+        Fq2 {
+            c0: Fq::sum_of_products([a.c0, -a.c1.double()], [b.c0, b.c1]),
+            c1: Fq::sum_of_products([a.c0, a.c1], [b.c1, b.c0]),
+        }
+        /*
         // Devegili OhEig Scott Dahab
         //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
         //     Section 3 (Karatsuba), which costs 3M + 2A + 4B
@@ -163,6 +185,7 @@ impl Fq2 {
             c0: aa - bb.double(),
             c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
         }
+        */
     }
 }
 

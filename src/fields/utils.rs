@@ -14,6 +14,7 @@ Given a fn (&T , &U), where T and U are Copyable, implements the binary operator
 
 */
 
+#[macro_export]
 macro_rules! impl_add_binop_specify_output {
     ($lhs:ident, $rhs:ident, $output:ident) => {
         impl<'a, 'b> Add<&'b $rhs> for &'a $lhs {
@@ -53,6 +54,7 @@ macro_rules! impl_add_binop_specify_output {
     };
 }
 
+#[macro_export]
 macro_rules! impl_sub_binop_specify_output {
     ($lhs:ident, $rhs:ident, $output:ident) => {
         impl<'a, 'b> Sub<&'b $rhs> for &'a $lhs {
@@ -93,6 +95,7 @@ macro_rules! impl_sub_binop_specify_output {
     };
 }
 
+#[macro_export]
 macro_rules! impl_binops_additive_specify_output {
     ($lhs:ident, $rhs:ident, $output:ident) => {
         impl_add_binop_specify_output!($lhs, $rhs, $output);
@@ -100,6 +103,7 @@ macro_rules! impl_binops_additive_specify_output {
     };
 }
 
+#[macro_export]
 macro_rules! impl_binops_multiplicative_mixed {
     ($lhs:ident, $rhs:ident, $output:ident) => {
         impl<'a, 'b> Mul<&'b $rhs> for &'a $lhs {

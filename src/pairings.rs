@@ -331,19 +331,19 @@ impl G2Prepared {
             let c = &self.coeffs[idx];
             idx += 1;
             f = f.squared();
-            f *= &self.get_fq12(c, &t1, g1.x());
+            f = f.mul_015(&self.get_fq12(c, &t1, g1.x()));
 
             if bit(SM9_LOOP_N, i) {
                 let c = &self.coeffs[idx];
                 idx += 1;
-                f *= &self.get_fq12(c, &t1, g1.x());
+                f = f.mul_015(&self.get_fq12(c, &t1, g1.x()));
             }
         }
 
         for _ in 0..2 {
             let c = &self.coeffs[idx];
             idx += 1;
-            f *= &self.get_fq12(c, &t1, g1.x());
+            f = f.mul_015(&self.get_fq12(c, &t1, g1.x()));
         }
 
         f

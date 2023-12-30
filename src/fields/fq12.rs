@@ -74,7 +74,35 @@ impl Fq12 {
         res[256..].copy_from_slice(&b0);
         res
     }
+    /// Returns `c = self * b` ,only use for b.c1 == 0 and b.c2 == (0,*)
+    pub fn mul_015(&self, b: &Fq12) -> Fq12 {
+        let aa = self.c0.mul_inplace(&b.c0);
+        let ba = self.c1.mul_inplace(&b.c0);
+        let ca = self.c2.mul_inplace(&b.c0);
+        let ac = self.c0.mul_1(&b.c2);
+        let bc = self.c1.mul_1(&b.c2);
+        let cc = self.c2.mul_1(&b.c2);
 
+        Fq12 {
+            c0: aa + bc.mul_by_nonresidue(),
+            c1: ba + cc.mul_by_nonresidue(),
+            c2: ca + ac,
+        }
+    }
+    // Multiplication and Squaring on Pairing-Friendly Fields.pdf
+    // Section 4 (Karatsuba)
+    #[inline]
+    fn mul_inplace(&self, other: &Fq12) -> Fq12 {
+        let a_a = self.c0.mul_inplace(&other.c0);
+        let b_b = self.c1.mul_inplace(&other.c1);
+        let c_c = self.c2.mul_inplace(&other.c2);
+
+        Fq12 {
+            c0: ((self.c1 + self.c2) * (other.c1 + other.c2) - b_b - c_c).mul_by_nonresidue() + a_a,
+            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - a_a - b_b + c_c.mul_by_nonresidue(),
+            c2: (self.c0 + self.c2) * (other.c0 + other.c2) - a_a + b_b - c_c,
+        }
+    }
     #[inline]
     fn neg_inplace(&self) -> Fq12 {
         Fq12 {
@@ -97,20 +125,6 @@ impl Fq12 {
             c0: self.c0.sub_inplace(&rhs.c0),
             c1: self.c1.sub_inplace(&rhs.c1),
             c2: self.c2.sub_inplace(&rhs.c2),
-        }
-    }
-    // Multiplication and Squaring on Pairing-Friendly Fields.pdf
-    // Section 4 (Karatsuba)
-    #[inline]
-    fn mul_inplace(&self, other: &Fq12) -> Fq12 {
-        let a_a = self.c0.mul_inplace(&other.c0);
-        let b_b = self.c1.mul_inplace(&other.c1);
-        let c_c = self.c2.mul_inplace(&other.c2);
-
-        Fq12 {
-            c0: ((self.c1 + self.c2) * (other.c1 + other.c2) - b_b - c_c).mul_by_nonresidue() + a_a,
-            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - a_a - b_b + c_c.mul_by_nonresidue(),
-            c2: (self.c0 + self.c2) * (other.c0 + other.c2) - a_a + b_b - c_c,
         }
     }
 }
