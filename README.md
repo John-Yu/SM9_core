@@ -1,6 +1,6 @@
 # sm9_core
 
-This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cryptography) library written in pure Rust. 
+This is a [pairing cryptography](https://en.wikipedia.org/wiki/Pairing-based_cryptography) library written in pure Rust.
 It makes use of the Barreto-Naehrig (BN) curve construction from "[SM9](https://en.wikipedia.org/wiki/SM9_(cryptography_standard)) identity-based  cryptographic algorithms" as well as [ISO/IEC 11770](https://www.iso.org/standard/82709.html) to provide two cyclic groups **G <sub>1 </sub>** and **G <sub>2 </sub>**, with an R-ate pairing:
 
 *e: G <sub>1 </sub> × G <sub>2 </sub> → G <sub>T </sub>*
@@ -15,7 +15,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`
 
 ```toml
 [dependencies]
-sm9_core = "0.3.5"
+sm9_core = "0.3.6"
 ```
 
 ## API
@@ -86,9 +86,9 @@ Thanks to them.
 
 | function | times |
 |:-:|:-:|
-| pairing | time:   [1.7508 ms 1.7713 ms 1.7957 ms] |
-| fast_pairing  |time:   [1.3401 ms 1.3478 ms 1.3562 ms] |
-| precomputed_pairing |time:   [1.1537 ms 1.1599 ms 1.1680 ms] |
+| pairing | time:   [1.3884 ms 1.3970 ms 1.4092 ms] |
+| fast_pairing  |time:   [1.0313 ms 1.0404 ms 1.0514 ms] |
+| precomputed_pairing |time:   [874.28 µs 882.42 µs 893.08 µs] |
 
 ### Authors
 

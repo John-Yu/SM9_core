@@ -2,7 +2,6 @@
 
 use byteorder::{BigEndian, ByteOrder};
 use core::cmp::Ordering;
-use crunchy::unroll;
 use rand::Rng;
 
 use crate::arith::*;
@@ -28,36 +27,13 @@ impl From<[u64; 8]> for U512 {
 impl U512 {
     /// Multiplies c1 by modulo, adds c0.
     pub fn new(c1: &U256, c0: &U256, modulo: &U256) -> U512 {
-        let mut res = [0; 4];
-
-        debug_assert_eq!(c1.0.len(), 2);
-        unroll! {
-            for i in 0..2 {
-                mac_digit(i, &mut res, &modulo.0, c1.0[i]);
-            }
-        }
-
-        let mut carry = 0;
-
-        debug_assert_eq!(res.len(), 4);
-        unroll! {
-            for i in 0..2 {
-                res[i] = adc(res[i], c0.0[i], &mut carry);
-            }
-        }
-
-        unroll! {
-            for i in 0..2 {
-                let (a1, a0) = split_u128(res[i + 2]);
-                let (c, r0) = split_u128(a0 + carry);
-                let (c, r1) = split_u128(a1 + c);
-                carry = c;
-
-                res[i + 2] = combine_u128(r1, r0);
-            }
-        }
-
-        debug_assert!(0 == carry);
+        let mut res = mul(&c1.0, &modulo.0);
+        let mut carry = false;
+        (res[0], carry) = carrying_add(res[0], c0.0[0], carry);
+        (res[1], carry) = carrying_add(res[1], c0.0[1], carry);
+        (res[2], carry) = carrying_add(res[2], 0, carry);
+        (res[3], carry) = carrying_add(res[3], 0, carry);
+        debug_assert!(!carry);
 
         U512(res)
     }
@@ -87,13 +63,29 @@ impl U512 {
     pub fn random<R: Rng>(rng: &mut R) -> U512 {
         U512(rng.gen())
     }
+    /// Returns the number of bits necessary to represent this value. Note that zero
+    /// is considered to need 0 bits.
+    pub fn bit_length(&self) -> usize {
+        let mut ret = 512;
+        for i in self.0.iter().rev() {
+            let leading = i.leading_zeros();
+            ret -= leading;
+            if leading != u128::BITS {
+                break;
+            }
+        }
 
+        ret as usize
+    }
+    /// Returns the `n`-th bit where bit 0 is the least significant one. true if bit is 1.
+    /// In other words, the bit with weight `2^n`.
+    #[inline]
     pub fn get_bit(&self, n: usize) -> Option<bool> {
         if n >= 512 {
             None
         } else {
-            let part = n / 128;
-            let bit = n - (128 * part);
+            let part = n >> 7;
+            let bit = n & 0x7F;
 
             Some(self.0[part] & (1 << bit) > 0)
         }
@@ -101,21 +93,29 @@ impl U512 {
 
     /// Divides self by modulo, returning remainder and quotient, if
     /// possible, a quotient smaller than the modulus.
+    // Stupid slow base-2 long division taken from
+    // https://en.wikipedia.org/wiki/Division_algorithm
     pub fn divrem(&self, modulo: &U256) -> (Option<U256>, U256) {
         let mut q = Some(U256::zero());
         let mut r = U256::zero();
+        let bits = self.bit_length();
 
-        for i in (0..512).rev() {
-            r.mul2(modulo);
+        for i in (0..bits).rev() {
+            let carry = mul2(&mut r.0);
             assert!(r.set_bit(0, self.get_bit(i).unwrap()));
-            if &r >= modulo {
-                sub_noborrow(&mut r.0, &modulo.0);
+            if &r >= modulo || carry {
+                if carry {
+                    r.add_carry(modulo);
+                }
+                if &r >= modulo {
+                    sub_noborrow(&mut r.0, &modulo.0);
+                }
                 if q.is_some() && !q.as_mut().unwrap().set_bit(i, true) {
-                    q = None
+                    q = None;
                 }
             }
         }
-
+        debug_assert!(q.is_none() || *self == Self::new(&q.unwrap(), &r, modulo));
         if q.is_some() && (q.as_ref().unwrap() >= modulo) {
             (None, r)
         } else {
@@ -136,15 +136,9 @@ impl U512 {
 impl Ord for U512 {
     #[inline]
     fn cmp(&self, other: &U512) -> Ordering {
-        for (a, b) in self.0.iter().zip(other.0.iter()).rev() {
-            match a.cmp(b) {
-                Ordering::Greater => return Ordering::Greater,
-                Ordering::Less => return Ordering::Less,
-                Ordering::Equal => continue,
-            }
-        }
-
-        Ordering::Equal
+        let lhs = self.0.iter().cloned().rev();
+        let rhs = other.0.iter().cloned().rev();
+        lhs.cmp(rhs)
     }
 }
 

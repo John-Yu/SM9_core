@@ -1,5 +1,4 @@
-use crunchy::unroll;
-
+#![allow(dead_code)]
 /// Divide by two
 #[inline]
 pub fn div2(a: &mut [u128; 2]) {
@@ -8,7 +7,6 @@ pub fn div2(a: &mut [u128; 2]) {
     a[0] >>= 1;
     a[0] |= tmp;
 }
-
 /// Multiply by two, return true if has carrry
 #[inline]
 pub fn mul2(a: &mut [u128; 2]) -> bool {
@@ -40,136 +38,209 @@ pub fn adc(a: u128, b: u128, carry: &mut u128) -> u128 {
 
     combine_u128(r1, r0)
 }
-
 #[inline]
 pub fn add_nocarry(a: &mut [u128; 2], b: &[u128; 2]) {
-    let mut carry = 0;
+    let mut carry;
 
-    for (a, b) in a.iter_mut().zip(b.iter()) {
-        *a = adc(*a, *b, &mut carry);
-    }
+    (a[0], carry) = a[0].overflowing_add(b[0]);
+    (a[1], carry) = carrying_add(a[1], b[1], carry);
 
-    debug_assert!(0 == carry);
+    debug_assert!(!carry);
 }
-
 // add , return true if has carry
 #[inline]
 pub fn add_carry(a: &mut [u128; 2], b: &[u128; 2]) -> bool {
-    let mut carry = 0;
+    let mut carry;
 
-    for (a, b) in a.iter_mut().zip(b.iter()) {
-        *a = adc(*a, *b, &mut carry);
-    }
+    (a[0], carry) = a[0].overflowing_add(b[0]);
+    (a[1], carry) = carrying_add(a[1], b[1], carry);
 
-    0 != carry
+    carry
 }
-
 #[inline]
 pub fn sub_noborrow(a: &mut [u128; 2], b: &[u128; 2]) {
-    #[inline]
-    fn sbb(a: u128, b: u128, borrow: &mut u128) -> u128 {
-        let (a1, a0) = split_u128(a);
-        let (b1, b0) = split_u128(b);
-        let (b, r0) = split_u128((1 << 64) + a0 - b0 - *borrow);
-        let (b, r1) = split_u128((1 << 64) + a1 - b1 - ((b == 0) as u128));
+    let mut borrow;
 
-        *borrow = (b == 0) as u128;
+    (a[0], borrow) = a[0].overflowing_sub(b[0]);
+    (a[1], borrow) = borrowing_sub(a[1], b[1], borrow);
 
-        combine_u128(r1, r0)
-    }
-
-    let mut borrow = 0;
-
-    for (a, b) in a.iter_mut().zip(b.iter()) {
-        *a = sbb(*a, *b, &mut borrow);
-    }
-
-    debug_assert!(0 == borrow);
+    debug_assert!(!borrow);
 }
-
+// sub , return true if has borrow
 #[inline]
-//a + b * c + carry,  return low u128, carry is the high u128
-pub(crate) fn mac_with_carry(a: u128, b: u128, c: u128, carry: &mut u128) -> u128 {
-    let (b_hi, b_lo) = split_u128(b);
-    let (c_hi, c_lo) = split_u128(c);
+pub fn sub_borrow(a: &mut [u128; 2], b: &[u128; 2]) -> bool {
+    let mut borrow;
 
-    let (a_hi, a_lo) = split_u128(a);
-    let (carry_hi, carry_lo) = split_u128(*carry);
-    let (x_hi, x_lo) = split_u128(b_lo * c_lo + a_lo + carry_lo);
-    let (y_hi, y_lo) = split_u128(b_lo * c_hi);
-    let (z_hi, z_lo) = split_u128(b_hi * c_lo);
-    // Brackets to allow better ILP
-    let (r_hi, r_lo) = split_u128((x_hi + y_lo) + (z_lo + a_hi) + carry_hi);
+    (a[0], borrow) = a[0].overflowing_sub(b[0]);
+    (a[1], borrow) = borrowing_sub(a[1], b[1], borrow);
 
-    *carry = (b_hi * c_hi) + r_hi + y_hi + z_hi;
-
-    combine_u128(r_lo, x_lo)
+    borrow
 }
-
-// TODO: Make `from_index` a const param
-// return true if has carry
-#[inline(always)]
-pub fn mac_digit(from_index: usize, acc: &mut [u128; 4], b: &[u128; 2], c: u128) -> bool {
-    if c == 0 {
-        return false;
-    }
-
-    let mut carry = 0;
-
-    debug_assert_eq!(acc.len(), 4);
-    unroll! {
-        for i in 0..2 {
-            let a_index = i + from_index;
-            acc[a_index] = mac_with_carry(acc[a_index], b[i], c, &mut carry);
-        }
-    }
-    unroll! {
-        for i in 0..2 {
-            let a_index = i + from_index + 2;
-            if a_index < 4 {
-                let (a_hi, a_lo) = split_u128(acc[a_index]);
-                let (carry_hi, carry_lo) = split_u128(carry);
-                let (x_hi, x_lo) = split_u128(a_lo + carry_lo);
-                let (r_hi, r_lo) = split_u128(x_hi + a_hi + carry_hi);
-
-                carry = r_hi;
-
-                acc[a_index] = combine_u128(r_lo, x_lo);
-            }
-        }
-    }
-
-    //debug_assert!(carry == 0);
-    carry != 0
-}
-
-/*
-this = this * by * R^-1 (mod modulus), where R = 2^256
-*/
+/// this = this * by * R^-1 (mod modulus), where R = 2^256
+// The Montgomery reduction here is based on Algorithm 14.32 in
+// Handbook of Applied Cryptography
+// <http://cacr.uwaterloo.ca/hac/about/chap14.pdf>.
 #[inline]
 pub fn mul_reduce(this: &mut [u128; 2], by: &[u128; 2], modulus: &[u128; 2], inv: u128) -> bool {
-    // The Montgomery reduction here is based on Algorithm 14.32 in
-    // Handbook of Applied Cryptography
-    // <http://cacr.uwaterloo.ca/hac/about/chap14.pdf>.
-
-    let mut has_carry = false;
-    let mut res = [0; 2 * 2];
-    // res = this * by
-    unroll! {
-        for i in 0..2 {
-            has_carry = mac_digit(i, &mut res, by, this[i]);
-        }
-    }
-
-    //res = res + res * inv * modulus
-    unroll! {
-        for i in 0..2 {
-            let k = inv.wrapping_mul(res[i]);
-            has_carry = mac_digit(i, &mut res, modulus, k);
-        }
-    }
-
+    let mut res = mul(this, by);
+    let carry = reduce(&mut res, modulus, inv);
     this.copy_from_slice(&res[2..]);
 
-    has_carry
+    carry
+}
+/// this = this^2 * R^-1 (mod modulus), where R = 2^256
+#[inline]
+pub fn square_reduce(this: &mut [u128; 2], modulus: &[u128; 2], inv: u128) -> bool {
+    let mut res = square(this);
+    let carry = reduce(&mut res, modulus, inv);
+    this.copy_from_slice(&res[2..]);
+
+    carry
+}
+/// Calculates the “full multiplication” lhs * rhs + carry without the possibility to overflow.
+/// This returns the low-order (wrapping) bits and the high-order (overflow) bits of the result as two separate values, in that order.
+/// u128::carrying_mul is not existed, so use this version.
+// come from crate awint.
+#[inline]
+pub(crate) fn carrying_mul(lhs: u128, rhs: u128, carry: u128) -> (u128, u128) {
+    let (sum0, sum1) = widening_mul(lhs, rhs);
+    let (sum0, carry2) = sum0.overflowing_add(carry);
+    let sum1 = sum1.wrapping_add(carry2 as u128);
+
+    (sum0, sum1)
+}
+/// Calculates the complete product lhs * rhs without the possibility to overflow.
+/// This returns the low-order (wrapping) bits and the high-order (overflow) bits of the result as two separate values, in that order.
+/// If you also need to add a carry to the wide result, then you want carrying_mul instead.
+/// u128::widening_mul is not existed, so use this version.
+#[inline]
+pub(crate) fn widening_mul(lhs: u128, rhs: u128) -> (u128, u128) {
+    //                       [rhs_hi]  [rhs_lo]
+    //                       [lhs_hi]  [lhs_lo]
+    //                     X___________________
+    //                       [------tmp0------]
+    //             [------tmp1------]
+    //             [------tmp2------]
+    //     [------tmp3------]
+    // +_______________________________________
+    //                       [------sum0------]
+    //     [------sum1------]
+
+    let (lhs_hi, lhs_lo) = split_u128(lhs);
+    let (rhs_hi, rhs_lo) = split_u128(rhs);
+    let tmp0 = lhs_lo.wrapping_mul(rhs_lo);
+    let tmp1 = lhs_lo.wrapping_mul(rhs_hi);
+    let tmp2 = lhs_hi.wrapping_mul(rhs_lo);
+    let tmp3 = lhs_hi.wrapping_mul(rhs_hi);
+    // tmp1 and tmp2 straddle the boundary. We have to handle three carries
+    let (sum0, carry0) = tmp0.overflowing_add(tmp1.wrapping_shl(64));
+    let (sum0, carry1) = sum0.overflowing_add(tmp2.wrapping_shl(64));
+    let sum1 = tmp3
+        .wrapping_add(tmp1.wrapping_shr(64))
+        .wrapping_add(tmp2.wrapping_shr(64))
+        .wrapping_add(carry0 as u128)
+        .wrapping_add(carry1 as u128);
+
+    (sum0, sum1)
+}
+/// Calculates c = a * b, without the possibility to overflow.
+#[inline]
+pub(crate) fn mul(a: &[u128; 2], b: &[u128; 2]) -> [u128; 4] {
+    let mut res = [0; 2 * 2];
+    let mut carry;
+
+    (res[0], carry) = widening_mul(a[0], b[0]);
+    (res[1], res[2]) = carrying_mul(a[0], b[1], carry);
+
+    (res[1], carry) = carrying_mul(a[1], b[0], res[1]);
+    (res[2], res[3]) = mac_with_carry(res[2], a[1], b[1], carry);
+
+    res
+}
+/// Calculates the square lhs^2 without the possibility to overflow.
+/// This returns the low-order (wrapping) bits and the high-order (overflow) bits of the result as two separate values, in that order.
+/// This is faster than widening_mul(lhs, lhs)
+#[inline]
+pub(crate) fn widening_square(lhs: u128) -> (u128, u128) {
+    let (lhs_hi, lhs_lo) = split_u128(lhs);
+    let tmp0 = lhs_lo.wrapping_mul(lhs_lo);
+    let tmp1 = lhs_lo.wrapping_mul(lhs_hi);
+    let tmp3 = lhs_hi.wrapping_mul(lhs_hi);
+    // tmp1 and tmp2 straddle the boundary. We have to handle three carries
+    let (sum0, carry0) = tmp0.overflowing_add(tmp1.wrapping_shl(65));
+    let sum1 = tmp3
+        .wrapping_add(tmp1.wrapping_shr(63))
+        .wrapping_add(carry0 as u128);
+
+    (sum0, sum1)
+}
+/// Calculates the square lhs^2 + carry without the possibility to overflow.
+/// This returns the low-order (wrapping) bits and the high-order (overflow) bits of the result as two separate values, in that order.
+/// This is faster than carrying_mul(lhs, lhs, carry)
+#[inline]
+pub(crate) fn carrying_square(lhs: u128, carry: u128) -> (u128, u128) {
+    let (sum0, sum1) = widening_square(lhs);
+    let (sum0, carry2) = sum0.overflowing_add(carry);
+    let sum1 = sum1.wrapping_add(carry2 as u128);
+
+    (sum0, sum1)
+}
+/// Calculates c = a^2, without the possibility to overflow.
+#[inline]
+pub(crate) fn square(a: &[u128; 2]) -> [u128; 4] {
+    let mut res = [0; 2 * 2];
+    let mut carry;
+
+    (res[0], res[1]) = widening_square(a[0]);
+    (res[2], res[3]) = widening_square(a[1]);
+
+    let (r1, r2) = widening_mul(a[0], a[1]);
+
+    (res[1], carry) = res[1].overflowing_add(r1.wrapping_shl(1));
+    (res[2], carry) = carrying_add(res[2], r2.wrapping_shl(1) | r1.wrapping_shr(127), carry);
+    (res[3], _) = carrying_add(res[3], r2.wrapping_shr(127), carry);
+
+    res
+}
+#[inline]
+pub(crate) fn reduce(res: &mut [u128; 4], modulus: &[u128; 2], inv: u128) -> bool {
+    let mut carry;
+
+    let k = inv.wrapping_mul(res[0]);
+    (_, carry) = carrying_mul(k, modulus[0], res[0]);
+    (res[1], carry) = mac_with_carry(res[1], k, modulus[1], carry);
+    res[2] = adc(res[2], 0, &mut carry);
+    let r3 = carry;
+
+    let k = inv.wrapping_mul(res[1]);
+    (_, carry) = carrying_mul(k, modulus[0], res[1]);
+    (res[2], carry) = mac_with_carry(res[2], k, modulus[1], carry);
+    res[3] = adc(res[3], r3, &mut carry);
+
+    carry != 0
+}
+/// Calculates a + b + carry and returns a tuple containing the sum and the output carry.
+// u128::carrying_add is a nightly-only experimental API now. so use this version firstly.
+// come from core/src/num/uint_macros.rs
+#[inline]
+pub(crate) fn carrying_add(a: u128, b: u128, carry: bool) -> (u128, bool) {
+    let (r, c) = a.overflowing_add(b);
+    let (x, d) = r.overflowing_add(carry as u128);
+    (x, c || d)
+}
+/// Calculates a − b − borrow and returns a tuple containing the difference and the output borrow.
+// u128::borrowing_sub is a nightly-only experimental API now. so use this version firstly.
+#[inline]
+pub(crate) fn borrowing_sub(a: u128, b: u128, borrow: bool) -> (u128, bool) {
+    let (r, c) = a.overflowing_sub(b);
+    let (x, d) = r.overflowing_sub(borrow as u128);
+    (x, c || d)
+}
+//a + b * c + carry,
+// This returns the low-order (wrapping) bits and the high-order (overflow) bits of the result as two separate values, in that order.
+#[inline]
+pub(crate) fn mac_with_carry(a: u128, b: u128, c: u128, carry: u128) -> (u128, u128) {
+    let (lo, hi) = carrying_mul(b, c, a);
+    let (r0, c) = lo.overflowing_add(carry);
+    (r0, hi.wrapping_add(c as u128))
 }

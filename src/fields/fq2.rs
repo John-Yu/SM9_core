@@ -95,7 +95,14 @@ impl Fq2 {
                 b * y2.inverse()?
             };
             let z0 = y;
-            Some(Self::new(z0, z1))
+            let sqrt_cand = Self::new(z0, z1);
+            // Check if sqrt_cand is actually the square root
+            // if not, there exists no square root.
+            if sqrt_cand.squared() == *self {
+                Some(sqrt_cand)
+            } else {
+                None
+            }
         })
     }
     /// Converts an element of `Fq2` into a U512
@@ -171,21 +178,9 @@ impl Fq2 {
 
         let a = self;
         Fq2 {
-            c0: Fq::sum_of_products([a.c0, -a.c1.double()], [b.c0, b.c1]),
-            c1: Fq::sum_of_products([a.c0, a.c1], [b.c1, b.c0]),
+            c0: Fq::sum_of_products(&[a.c0, -a.c1.double()], &[b.c0, b.c1]),
+            c1: Fq::sum_of_products(&[a.c0, a.c1], &[b.c1, b.c0]),
         }
-        /*
-        // Devegili OhEig Scott Dahab
-        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Karatsuba), which costs 3M + 2A + 4B
-        let aa = self.c0.mul_inplace(&other.c0);
-        let bb = self.c1.mul_inplace(&other.c1);
-
-        Fq2 {
-            c0: aa - bb.double(),
-            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
-        }
-        */
     }
 }
 

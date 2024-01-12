@@ -38,21 +38,13 @@ pub trait FieldElement:
     fn double(&self) -> Self;
     fn triple(&self) -> Self;
     fn inverse(&self) -> Option<Self>;
+    // Left-to-right binary modular exponentiation with square-and-multiply method.
     fn pow<I: Into<U256>>(&self, by: I) -> Self
     where
         for<'a> Self: MulAssign<&'a Self>,
     {
         let mut res = Self::one();
-        let mut found_one = false;
-        for i in by.into().bits().skip_while(|b| !b) {
-            if !found_one {
-                if i {
-                    // found the first '1'
-                    found_one = true;
-                    res = *self;
-                }
-                continue;
-            }
+        for i in by.into().bits_without_leading_zeros() {
             res = res.squared();
             if i {
                 res *= self;
@@ -79,13 +71,6 @@ lazy_static::lazy_static! {
         0x8894F5D163695D0E
     ]);
 
-    static ref FR_CUBED: U256 = U256::from([
-        0xA8EA85210CE29EF9,
-        0x8BD11806993E3A54,
-        0x0DB935B5F51A6DA4,
-        0x85CB2B73F249E8EC
-    ]);
-
     static ref FR_ONE: U256 = U256::from([
         0x1A911E63296130DB,
         0xB60D6CB4E7157411,
@@ -105,13 +90,6 @@ lazy_static::lazy_static! {
         0x88F8105FAE1A5D3F,
         0xE479B522D6706E7B,
         0x2EA795A656F62FBD
-    ]);
-
-    static ref FQ_CUBED: U256 = U256::from([
-        0x130257769DF5827E,
-        0x36920FC0837EC76E,
-        0xCBEC24519C22A142,
-        0x219BE84A7C687090
     ]);
 
     static ref FQ_ONE: U256 = U256::from([
@@ -418,8 +396,8 @@ mod tests {
             let b3 = Fq::random(&mut rng);
             let b4 = Fq::random(&mut rng);
             let c1 = Fq::sum_of_products(
-                [a1, a2, a3, a4, a1, a2, a3, a4],
-                [b1, b2, b3, b4, b1, b2, b3, b4],
+                &[a1, a2, a3, a4, a1, a2, a3, a4],
+                &[b1, b2, b3, b4, b1, b2, b3, b4],
             );
             let c2 = a1 * b1 + a2 * b2 + a3 * b3 + a4 * b4;
             assert_eq!(c1, c2.double());

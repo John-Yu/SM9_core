@@ -149,39 +149,26 @@ impl Fq4 {
         Fq4 {
             c0: Fq2 {
                 c0: Fq::sum_of_products(
-                    [a.c0.c0, a01d, -a.c1.c0.double(), a11d],
-                    [b.c0.c0, b.c0.c1, b.c1.c1, b.c1.c0],
+                    &[a.c0.c0, a01d, -a.c1.c0.double(), a11d],
+                    &[b.c0.c0, b.c0.c1, b.c1.c1, b.c1.c0],
                 ),
                 c1: Fq::sum_of_products(
-                    [a.c0.c0, a.c0.c1, a.c1.c0, a11d],
-                    [b.c0.c1, b.c0.c0, b.c1.c0, b.c1.c1],
+                    &[a.c0.c0, a.c0.c1, a.c1.c0, a11d],
+                    &[b.c0.c1, b.c0.c0, b.c1.c0, b.c1.c1],
                 ),
             },
             c1: Fq2 {
                 c0: Fq::sum_of_products(
-                    [a.c0.c0, a01d, a.c1.c0, a11d],
-                    [b.c1.c0, b.c1.c1, b.c0.c0, b.c0.c1],
+                    &[a.c0.c0, a01d, a.c1.c0, a11d],
+                    &[b.c1.c0, b.c1.c1, b.c0.c0, b.c0.c1],
                 ),
                 c1: Fq::sum_of_products(
-                    [a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1],
-                    [b.c1.c1, b.c1.c0, b.c0.c1, b.c0.c0],
+                    &[a.c0.c0, a.c0.c1, a.c1.c0, a.c1.c1],
+                    &[b.c1.c1, b.c1.c0, b.c0.c1, b.c0.c0],
                 ),
             },
         }
     }
-    /*
-    pub fn mul_inplace(&self, other: &Fq4) -> Fq4 {
-        // Devegili OhEig Scott Dahab
-        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Karatsuba), which costs 3M + 3A + 2B
-        let aa = self.c0.mul_inplace(&other.c0);
-        let bb = self.c1.mul_inplace(&other.c1);
-        Fq4 {
-            c0: aa + bb.mul_by_nonresidue(),
-            c1: (self.c0 + self.c1) * (other.c0 + other.c1) - aa - bb,
-        }
-    }
-    */
     #[inline]
     pub fn sub_inplace(&self, rhs: &Fq4) -> Fq4 {
         Fq4 {

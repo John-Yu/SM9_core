@@ -276,17 +276,12 @@ impl<P: GroupParams> GroupElement for G<P> {
 impl<P: GroupParams> Mul<Fr> for G<P> {
     type Output = G<P>;
     #[allow(clippy::suspicious_arithmetic_impl)]
+    /// Standard double-and-add method for multiplication by a scalar.
     fn mul(self, other: Fr) -> G<P> {
         let mut res = G::zero();
-        let mut found_one = false;
-
-        for i in U256::from(other).bits().skip_while(|b| !b) {
-            if found_one {
-                res = res.double();
-            }
-
+        for i in U256::from(other).bits_without_leading_zeros() {
+            res = res.double();
             if i {
-                found_one = true;
                 res = res + self;
             }
         }

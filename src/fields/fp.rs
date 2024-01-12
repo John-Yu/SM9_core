@@ -1,18 +1,17 @@
 use alloc::vec::Vec;
 use core::fmt;
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::arith::{adc, mac_with_carry};
+use crate::arith::{carrying_add, mac_with_carry};
 use crate::fields::{
-    FieldElement, FQ, FQ_CUBED, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_CUBED,
-    FR_ONE, FR_SQUARED,
+    FieldElement, FQ, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_ONE, FR_SQUARED,
 };
 use crate::u256::U256;
 use crate::u512::U512;
 
 macro_rules! field_impl {
-    ($name:ident, $modulus:expr, $rsquared:expr, $rcubed:expr, $one:expr, $inv:expr) => {
+    ($name:ident, $modulus:expr, $rsquared:expr, $one:expr, $inv:expr) => {
         #[derive(Copy, Clone, PartialEq, Eq)]
         #[repr(C)]
         pub struct $name(pub(crate) U256);
@@ -166,10 +165,8 @@ macro_rules! field_impl {
                     None
                 } else {
                     let mut a = self.0;
-                    a.invert(&$modulus);
-                    a.mul(&$rcubed, &$modulus, $inv);
-
-                    Some(Self(a))
+                    a.invert(&$modulus, &$rsquared);
+                    Some($name(a))
                 }
             }
             /// double this element
@@ -177,9 +174,6 @@ macro_rules! field_impl {
             fn double(&self) -> Self {
                 let mut a = self.0;
                 a.mul2(&$modulus);
-                if &a >= &$modulus {
-                    a.sub(&$modulus, &$modulus);
-                }
                 $name(a)
             }
             /// triple this element
@@ -188,7 +182,9 @@ macro_rules! field_impl {
             }
             /// Squares this element.
             fn squared(&self) -> Self {
-                self * self
+                let mut a = self.0;
+                a.square(&$modulus, $inv);
+                $name(a)
             }
         }
 
@@ -204,6 +200,14 @@ macro_rules! field_impl {
             }
         }
 
+        impl Index<usize> for $name {
+            type Output = u128;
+            #[inline(always)]
+            fn index(&self, index: usize) -> &Self::Output {
+                &self.0 .0[index]
+            }
+        }
+
         impl fmt::Debug for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "Fp({:?})", U256::from(*self))
@@ -216,7 +220,6 @@ field_impl!(
     Fr,
     FR,
     FR_SQUARED,
-    FR_CUBED,
     FR_ONE,
     0xF590740D939A510D1D02662351974B53
 );
@@ -225,7 +228,6 @@ field_impl!(
     Fq,
     FQ,
     FQ_SQUARED,
-    FQ_CUBED,
     FQ_ONE,
     0x181AE39613C8DBAF892BC42C2F2EE42B
 );
@@ -278,7 +280,7 @@ impl Fq {
     /// Implements Algorithm 2 from Patrick Longa's
     /// [ePrint 2022-367](https://eprint.iacr.org/2022/367) $3.
     #[inline]
-    pub(crate) fn sum_of_products<const T: usize>(a: [Fq; T], b: [Fq; T]) -> Fq {
+    pub(crate) fn sum_of_products<const T: usize>(a: &[Fq; T], b: &[Fq; T]) -> Fq {
         // For a single `a x b` multiplication, operand scanning (schoolbook) takes each
         // limb of `a` in turn, and multiplies it by all of the limbs of `b` to compute
         // the result as a double-width intermediate representation, which is then fully
@@ -300,31 +302,27 @@ impl Fq {
             // For each pair in the overall sum of products:
             let (t0, t1, t2, t3) = (0..T).fold((u0, u1, u2, 0), |(t0, t1, t2, t3), i| {
                 // Compute digit_j x row and accumulate into `u`.
-                let mut carry = 0u128;
-                let t0 = mac_with_carry(t0, a[i].0 .0[j], b[i].0 .0[0], &mut carry);
-                let t1 = mac_with_carry(t1, a[i].0 .0[j], b[i].0 .0[1], &mut carry);
-                let t2 = adc(t2, 0, &mut carry);
-                let t3 = adc(t3, 0, &mut carry);
+                let d = a[i][j];
+                let e = b[i].0.as_ref();
+                let (t0, carry) = mac_with_carry(t0, d, e[0], 0);
+                let (t1, carry) = mac_with_carry(t1, d, e[1], carry);
+                let (t2, carry) = carrying_add(t2, carry, false);
+                let (t3, _) = carrying_add(t3, 0, carry);
                 (t0, t1, t2, t3)
             });
             // Algorithm 2, lines 4-5
             // This is a single step of the usual Montgomery reduction process.
             let q = t0.wrapping_mul(0x181AE39613C8DBAF892BC42C2F2EE42B);
-            let mut carry = 0u128;
-            mac_with_carry(t0, q, FQ.0[0], &mut carry);
-            let r1 = mac_with_carry(t1, q, FQ.0[1], &mut carry);
-            let r2 = adc(t2, 0, &mut carry);
-            let r3 = adc(t3, 0, &mut carry);
+            let (_, carry) = mac_with_carry(t0, q, FQ[0], 0);
+            let (r1, carry) = mac_with_carry(t1, q, FQ[1], carry);
+            let (r2, carry) = t2.overflowing_add(carry);
+            let (r3, _) = carrying_add(t3, 0, carry);
             (r1, r2, r3)
         });
         let mut u = U256([u0, u1]);
         if u2 != 0 {
             // has carry
-            // println!("sum_of_products,overflow {:?}", u2);
             for _ in 0..u2 {
-                if &u >= &FQ {
-                    u.sub(&FQ, &FQ);
-                }
                 u.add_carry(&FQ);
             }
         }
@@ -332,6 +330,13 @@ impl Fq {
         if &u >= &FQ {
             u.sub(&FQ, &FQ);
         }
+        debug_assert_eq!(
+            a.iter()
+                .zip(b.iter())
+                .map(|(&a, &b)| a * b)
+                .fold(Fq::zero(), |acc, f| acc + f),
+            Fq(u)
+        );
         Fq(u)
     }
 }

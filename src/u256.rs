@@ -1,6 +1,9 @@
 use byteorder::{BigEndian, ByteOrder};
-use core::cmp::Ordering;
-use core::fmt;
+use core::{
+    cmp::Ordering,
+    fmt,
+    ops::{Index, IndexMut},
+};
 use rand::Rng;
 
 use crate::arith::*;
@@ -75,24 +78,24 @@ impl U256 {
     }
     /// Returns true if element is zero.
     pub fn is_zero(&self) -> bool {
-        self.0[0] == 0 && self.0[1] == 0
+        self[0] == 0 && self[1] == 0
     }
     /// Returns true if element is one.
     pub fn is_one(&self) -> bool {
-        self.0[0] == 1 && self.0[1] == 0
+        self[0] == 1 && self[1] == 0
     }
 
     pub fn set_bit(&mut self, n: usize, to: bool) -> bool {
         if n >= 256 {
             false
         } else {
-            let part = n / 128;
-            let bit = n - (128 * part);
+            let part = n >> 7;
+            let bit = n & 0x7F;
 
             if to {
-                self.0[part] |= 1 << bit;
+                self[part] |= 1 << bit;
             } else {
-                self.0[part] &= !(1 << bit);
+                self[part] &= !(1 << bit);
             }
 
             true
@@ -103,33 +106,27 @@ impl U256 {
         if n >= 256 {
             None
         } else {
-            let part = n / 128;
-            let bit = n - (128 * part);
+            let part = n >> 7;
+            let bit = n & 0x7F;
 
-            Some(self.0[part] & (1 << bit) > 0)
+            Some(self[part] & (1 << bit) > 0)
         }
     }
 
     // self = self + 2^256 (mod `modulo`)
     pub(crate) fn add_carry(&mut self, modulo: &U256) {
-        let mut a = U256([
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-        ]);
-        // TODO: need  self + 2^256 < modulo * 2
-        sub_noborrow(&mut a.0, &modulo.0);
-        add_nocarry(&mut self.0, &U256::one().0);
-        add_nocarry(&mut self.0, &a.0);
+        loop {
+            if sub_borrow(&mut self.0, &modulo.0) {
+                break;
+            }
+        }
     }
-
     /// Add `other` to `self` (mod `modulo`)
     pub fn add(&mut self, other: &U256, modulo: &U256) {
         if add_carry(&mut self.0, &other.0) {
             // has carry
             self.add_carry(modulo);
-        }
-
-        if *self >= *modulo {
+        } else if *self >= *modulo {
             sub_noborrow(&mut self.0, &modulo.0);
         }
     }
@@ -151,6 +148,8 @@ impl U256 {
         if mul2(&mut self.0) {
             // has carry
             self.add_carry(modulo);
+        } else if *self >= *modulo {
+            sub_noborrow(&mut self.0, &modulo.0);
         }
     }
 
@@ -172,37 +171,43 @@ impl U256 {
         if mul_reduce(&mut self.0, &other.0, &modulo.0, inv) {
             // has carry
             self.add_carry(modulo);
+        } else if *self >= *modulo {
+            sub_noborrow(&mut self.0, &modulo.0);
         }
+    }
 
-        if *self >= *modulo {
+    /// Square `self`  (mod `modulo`) via the Montgomery
+    pub fn square(&mut self, modulo: &U256, inv: u128) {
+        if square_reduce(&mut self.0, &modulo.0, inv) {
+            // has carry
+            self.add_carry(modulo);
+        } else if *self >= *modulo {
             sub_noborrow(&mut self.0, &modulo.0);
         }
     }
 
     /// Turn `self` into its additive inverse (mod `modulo`)
     pub fn neg(&mut self, modulo: &U256) {
-        if *self > Self::zero() {
+        if !self.is_zero() {
             let mut tmp = modulo.0;
             sub_noborrow(&mut tmp, &self.0);
-
             self.0 = tmp;
         }
     }
 
     #[inline]
     pub fn is_even(&self) -> bool {
-        self.0[0] & 1 == 0
+        self[0] & 1 == 0
     }
 
     /// Turn `self` into its multiplicative inverse (mod `modulo`)
-    pub fn invert(&mut self, modulo: &U256) {
-        // Guajardo Kumar Paar Pelzl
-        // Efficient Software-Implementation of Finite Fields with Applications to Cryptography
-        // Algorithm 16 (BEA for Inversion in Fp)
-
+    // Guajardo Kumar Paar Pelzl
+    // Efficient Software-Implementation of Finite Fields with Applications to Cryptography
+    // Algorithm 16 (BEA for Inversion in Fp)
+    pub fn invert(&mut self, modulo: &U256, rsquared: &U256) {
         let mut u = *self;
         let mut v = *modulo;
-        let mut b = U256::one();
+        let mut b = *rsquared; // Avoids unnecessary reduction step. perfect!
         let mut c = U256::zero();
 
         while !u.is_one() && !v.is_one() {
@@ -236,6 +241,11 @@ impl U256 {
     pub fn bits(&self) -> BitIterator {
         BitIterator { int: self, n: 256 }
     }
+    /// Construct an iterator that automatically skips any leading zeros.
+    /// That is, it skips all zeros before the most-significant one.
+    pub fn bits_without_leading_zeros(&self) -> impl Iterator<Item = bool> + '_ {
+        BitIterator { int: self, n: 256 }.skip_while(|b| !b)
+    }
 }
 
 pub struct BitIterator<'a> {
@@ -259,15 +269,11 @@ impl<'a> Iterator for BitIterator<'a> {
 impl Ord for U256 {
     #[inline]
     fn cmp(&self, other: &U256) -> Ordering {
-        for (a, b) in self.0.iter().zip(other.0.iter()).rev() {
-            match a.cmp(b) {
-                Ordering::Greater => return Ordering::Greater,
-                Ordering::Less => return Ordering::Less,
-                Ordering::Equal => continue,
-            }
+        match self[1].cmp(&other[1]) {
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Less => Ordering::Less,
+            Ordering::Equal => self[0].cmp(&other[0]),
         }
-
-        Ordering::Equal
     }
 }
 
@@ -275,6 +281,35 @@ impl PartialOrd for U256 {
     #[inline]
     fn partial_cmp(&self, other: &U256) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl AsMut<[u128]> for U256 {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [u128] {
+        &mut self.0
+    }
+}
+
+impl AsRef<[u128]> for U256 {
+    #[inline]
+    fn as_ref(&self) -> &[u128] {
+        &self.0
+    }
+}
+
+impl Index<usize> for U256 {
+    type Output = u128;
+    #[inline(always)]
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<usize> for U256 {
+    #[inline(always)]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
     }
 }
 

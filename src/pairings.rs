@@ -13,10 +13,43 @@ const SM9_LOOP_COUNT: [u8; 65] = [
     0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 2, 0, 2, 0, 0, 1, 0, 1, 0, 0, 0, 0, 2,
     0,
 ];
+const SM9_S: u128 = 0x600000000058F98A;
 // 6s+2, where s=0x600000000058F98A
 const SM9_LOOP_N: u128 = 0x2400000000215D93E;
+// a2 = 0xd8000000019062ed 0000b98b0cb27659
+const SM9_A2: u128 = 0xd8000000019062ed0000b98b0cb27659;
+// a3 = 0x2 400000000215d941
+const SM9_A3: u128 = 0x2400000000215d941;
+const SM9_NINE: u128 = 0x9;
 
 impl Fq12 {
+    /// Raises a value to the power of exp, using exponentiation by squaring.
+    #[inline]
+    fn pow(&self, mut exp: u128) -> Fq12 {
+        if exp == 0 {
+            return Fq12::one();
+        }
+        let mut base = *self;
+
+        while exp & 1 == 0 {
+            base = base.squared();
+            exp >>= 1;
+        }
+
+        if exp == 1 {
+            return base;
+        }
+
+        let mut acc = base;
+        while exp > 1 {
+            exp >>= 1;
+            base = base.squared();
+            if exp & 1 == 1 {
+                acc *= &base;
+            }
+        }
+        acc
+    }
     fn final_exponentiation_first_chunk(&self) -> Option<Fq12> {
         let b = self.inverse()?;
         let a = self.frobenius_map(6);
@@ -27,7 +60,7 @@ impl Fq12 {
     }
 
     fn final_exponentiation_last_chunk(&self) -> Fq12 {
-        let a = self.pow(*SM9_A3);
+        let a = self.pow(SM9_A3);
         let b = a.inverse().unwrap();
         let c = b.frobenius_map(1);
         let d = c * b;
@@ -35,7 +68,7 @@ impl Fq12 {
         let e = d * b;
         let f = self.frobenius_map(1);
         let g = self * f;
-        let h = g.pow(*SM9_NINE);
+        let h = g.pow(SM9_NINE);
 
         let i = e * h;
         let j = self.squared();
@@ -46,7 +79,7 @@ impl Fq12 {
         let o = self.frobenius_map(2);
         let p = o * n;
 
-        let q = p.pow(*SM9_A2);
+        let q = p.pow(SM9_A2);
         let r = q * l;
         let s = self.frobenius_map(3);
 
@@ -61,7 +94,7 @@ impl Fq12 {
 
     //final_exp
     fn final_exp_last_chunk(&self) -> Fq12 {
-        let mut t1 = self.pow(*SM9_S).inverse().unwrap();
+        let mut t1 = self.pow(SM9_S).inverse().unwrap();
         let mut t0 = self.frobenius_map(1);
         let mut x0 = self.frobenius_map(2);
         let x1 = self.frobenius_map(6);
@@ -70,12 +103,12 @@ impl Fq12 {
 
         x0 *= self * t0;
         x0 = x0.frobenius_map(1);
-        let x5 = t1.pow(*SM9_S);
+        let x5 = t1.pow(SM9_S);
         t1 = x5.inverse().unwrap();
         x4 *= t1.frobenius_map(1).inverse().unwrap();
         let x2 = t1.frobenius_map(2);
 
-        t0 = t1.pow(*SM9_S).inverse().unwrap();
+        t0 = t1.pow(SM9_S).inverse().unwrap();
         t1 = t0.frobenius_map(1);
         t0 *= t1;
         t0 = t0.squared();
@@ -377,13 +410,6 @@ lazy_static::lazy_static! {
         0xf300000002a3a6f2,
         0x0
     ]);
-    // a2 = 0xd8000000019062ed 0000b98b0cb27659
-    // a3 = 0x2 400000000215d941
-    static ref SM9_A2: U256 = U256([0xd8000000019062ed0000b98b0cb27659, 0x0]);
-    static ref SM9_A3: U256 = U256([0x2400000000215d941, 0x0]);
-    static ref SM9_NINE: U256 = U256([0x9, 0x0]);
-    static ref SM9_S: U256 = U256([0x600000000058F98A, 0x0]);
-
 }
 
 /* ************************************************************************************************ */
