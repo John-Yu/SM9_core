@@ -3,9 +3,12 @@
 use alloc::vec::Vec;
 use core::ops::Neg;
 
-use crate::fields::{FieldElement, Fq, Fq12, Fq2, Fq4};
-use crate::groups::{GroupElement, G1, G2};
-use crate::u256::U256;
+use crate::{
+    fields::{FieldElement, Fq, Fq12, Fq2, Fq4},
+    groups::{GroupElement, G1, G2},
+    u256::U256,
+    Zero,
+};
 
 // abits = "00100000000000000000000000000000000000010000101100020200101000020";
 const SM9_LOOP_COUNT: [u8; 65] = [

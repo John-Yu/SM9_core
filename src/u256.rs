@@ -9,8 +9,7 @@ use rand::Rng;
 use crate::arith::*;
 use crate::u512::U512;
 
-/// 256-bit, stack allocated biginteger for use in prime field
-/// arithmetic.
+/// 256-bit stack allocated biginteger for use in prime field arithmetic.
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct U256(pub(crate) [u128; 2]);

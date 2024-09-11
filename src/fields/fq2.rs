@@ -3,9 +3,12 @@
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::fields::{FieldElement, Fq, FQ};
-use crate::u256::{Error, U256};
-use crate::u512::U512;
+use crate::{
+    fields::{FieldElement, Fq, FQ},
+    u256::{Error, U256},
+    u512::U512,
+    Zero,
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(C)]
@@ -188,7 +191,7 @@ impl_binops_additive!(Fq2, Fq2);
 impl_binops_multiplicative!(Fq2, Fq2);
 impl_binops_negative!(Fq2);
 
-impl FieldElement for Fq2 {
+impl Zero for Fq2 {
     #[inline]
     fn zero() -> Self {
         Fq2 {
@@ -196,7 +199,13 @@ impl FieldElement for Fq2 {
             c1: Fq::zero(),
         }
     }
-
+    /// Returns true if element is zero.
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        self.c0.is_zero() && self.c1.is_zero()
+    }
+}
+impl FieldElement for Fq2 {
     #[inline]
     fn one() -> Self {
         Fq2 {
@@ -210,11 +219,6 @@ impl FieldElement for Fq2 {
             c0: Fq::random(rng),
             c1: Fq::random(rng),
         }
-    }
-    /// Returns true if element is zero.
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        self.c0.is_zero() && self.c1.is_zero()
     }
     /// double this element
     #[inline(always)]

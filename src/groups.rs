@@ -7,8 +7,11 @@ use core::{
 use hex_literal::hex;
 use rand::Rng;
 
-use crate::fields::{FieldElement, Fq, Fq2, Fr};
-use crate::u256::U256;
+use crate::{
+    fields::{FieldElement, Fq, Fq2, Fr},
+    u256::U256,
+    Zero,
+};
 
 const SM9_P1X: [u8; 32] =
     hex!("93DE051D 62BF718F F5ED0704 487D01D6 E1E40869 09DC3280 E8C4E481 7C66DDDD");
@@ -27,6 +30,7 @@ pub trait GroupElement:
     Sized
     + Copy
     + Clone
+    + Zero
     + PartialEq
     + Eq
     + fmt::Debug
@@ -35,10 +39,8 @@ pub trait GroupElement:
     + Neg<Output = Self>
     + Mul<Fr, Output = Self>
 {
-    fn zero() -> Self;
     fn one() -> Self;
     fn random<R: Rng>(rng: &mut R) -> Self;
-    fn is_zero(&self) -> bool;
     fn double(&self) -> Self;
 }
 
@@ -230,7 +232,7 @@ impl<P: GroupParams> AffineG<P> {
     }
 }
 
-impl<P: GroupParams> GroupElement for G<P> {
+impl<P: GroupParams> Zero for G<P> {
     fn zero() -> Self {
         G {
             x: P::Base::zero(),
@@ -239,6 +241,12 @@ impl<P: GroupParams> GroupElement for G<P> {
         }
     }
 
+    fn is_zero(&self) -> bool {
+        self.z.is_zero()
+    }
+}
+
+impl<P: GroupParams> GroupElement for G<P> {
     fn one() -> Self {
         P::one()
     }
@@ -247,9 +255,6 @@ impl<P: GroupParams> GroupElement for G<P> {
         P::one() * Fr::random(rng)
     }
 
-    fn is_zero(&self) -> bool {
-        self.z.is_zero()
-    }
     // SM9 dentity-based cryptographic algorithms
     // Part 1: General
     // Annex A  A.1.3.3.2

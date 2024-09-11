@@ -28,12 +28,15 @@ use alloc::fmt::Debug;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::fields::FieldElement;
-use crate::groups::{G1Params, G2Params, GroupElement, GroupParams};
 pub use crate::pairings::G2Prepared;
-use crate::u256::U256;
+use crate::{
+    fields::FieldElement,
+    groups::{G1Params, G2Params, GroupElement, GroupParams},
+    u256::U256,
+};
 pub use core::str::FromStr;
 pub use hex_literal::hex;
+pub use num_traits::Zero;
 
 #[derive(Debug)]
 pub enum FieldError {

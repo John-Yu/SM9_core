@@ -3,7 +3,10 @@
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::fields::{FieldElement, Fq4};
+use crate::{
+    fields::{FieldElement, Fq4},
+    Zero,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -133,7 +136,7 @@ impl_binops_additive!(Fq12, Fq12);
 impl_binops_multiplicative!(Fq12, Fq12);
 impl_binops_negative!(Fq12);
 
-impl FieldElement for Fq12 {
+impl Zero for Fq12 {
     #[inline]
     fn zero() -> Self {
         Fq12 {
@@ -142,7 +145,12 @@ impl FieldElement for Fq12 {
             c2: Fq4::zero(),
         }
     }
-
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        self.c0.is_zero() && self.c1.is_zero() && self.c2.is_zero()
+    }
+}
+impl FieldElement for Fq12 {
     #[inline]
     fn one() -> Self {
         Fq12 {
@@ -160,10 +168,6 @@ impl FieldElement for Fq12 {
         }
     }
 
-    #[inline(always)]
-    fn is_zero(&self) -> bool {
-        self.c0.is_zero() && self.c1.is_zero() && self.c2.is_zero()
-    }
     /// double this element
     #[inline(always)]
     fn double(&self) -> Self {

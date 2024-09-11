@@ -3,12 +3,16 @@ use core::fmt;
 use core::ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::arith::{carrying_add, mac_with_carry};
-use crate::fields::{
-    FieldElement, FQ, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_ONE, FR_SQUARED,
+use crate::{
+    arith::{carrying_add, mac_with_carry},
+    fields::{
+        FieldElement, FQ, FQ_INV, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_INV,
+        FR_ONE, FR_SQUARED,
+    },
+    u256::U256,
+    u512::U512,
+    Zero,
 };
-use crate::u256::U256;
-use crate::u512::U512;
 
 macro_rules! field_impl {
     ($name:ident, $modulus:expr, $rsquared:expr, $one:expr, $inv:expr) => {
@@ -139,12 +143,18 @@ macro_rules! field_impl {
         impl_binops_multiplicative!($name, $name);
         impl_binops_negative!($name);
 
-        impl FieldElement for $name {
+        impl Zero for $name {
             #[inline]
             fn zero() -> Self {
                 $name(U256::zero())
             }
 
+            #[inline]
+            fn is_zero(&self) -> bool {
+                self.0.is_zero()
+            }
+        }
+        impl FieldElement for $name {
             #[inline]
             fn one() -> Self {
                 $name(*$one)
@@ -154,10 +164,6 @@ macro_rules! field_impl {
                 $name(U256::random(rng, &$modulus))
             }
 
-            #[inline]
-            fn is_zero(&self) -> bool {
-                self.0.is_zero()
-            }
             /// Computes the inverse of this element,
             /// None if the element is zero.
             fn inverse(&self) -> Option<Self> {
@@ -216,21 +222,9 @@ macro_rules! field_impl {
     };
 }
 
-field_impl!(
-    Fr,
-    FR,
-    FR_SQUARED,
-    FR_ONE,
-    0xF590740D939A510D1D02662351974B53
-);
+field_impl!(Fr, FR, FR_SQUARED, FR_ONE, *FR_INV);
 
-field_impl!(
-    Fq,
-    FQ,
-    FQ_SQUARED,
-    FQ_ONE,
-    0x181AE39613C8DBAF892BC42C2F2EE42B
-);
+field_impl!(Fq, FQ, FQ_SQUARED, FQ_ONE, *FQ_INV);
 
 impl Fq {
     /// Computes the square root of this element, if it exists.
@@ -312,7 +306,7 @@ impl Fq {
             });
             // Algorithm 2, lines 4-5
             // This is a single step of the usual Montgomery reduction process.
-            let q = t0.wrapping_mul(0x181AE39613C8DBAF892BC42C2F2EE42B);
+            let q = t0.wrapping_mul(*FQ_INV);
             let (_, carry) = mac_with_carry(t0, q, FQ[0], 0);
             let (r1, carry) = mac_with_carry(t1, q, FQ[1], carry);
             let (r2, carry) = t2.overflowing_add(carry);

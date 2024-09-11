@@ -3,8 +3,11 @@
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
-use crate::fields::{FieldElement, Fq, Fq2};
-use crate::u256::U256;
+use crate::{
+    fields::{FieldElement, Fq, Fq2},
+    u256::U256,
+    Zero,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -141,7 +144,7 @@ impl Fq4 {
         //c0,1 =a0,0b0,1 + a0,1b0,0 + a1,0b1,0 - 2a1,1b1,1
         //c1,0 =a0,0b1,0 − 2a0,1b1,1 + a1,0b0,0 − 2a1,1b0,1
         //c1,1 =a0,0b1,1 + a0,1b1,0 + a1,0b0,1 + a1,1b0,0
-        // Each of these is a "sum of products", which we can compute efficiently.
+        //Each of these is a "sum of products", which we can compute efficiently.
 
         let a = self;
         let a01d = -a.c0.c1.double();
@@ -196,14 +199,18 @@ impl_binops_additive!(Fq4, Fq4);
 impl_binops_multiplicative!(Fq4, Fq4);
 impl_binops_negative!(Fq4);
 
-impl FieldElement for Fq4 {
+impl Zero for Fq4 {
     fn zero() -> Self {
         Fq4 {
             c0: Fq2::zero(),
             c1: Fq2::zero(),
         }
     }
-
+    fn is_zero(&self) -> bool {
+        self.c0.is_zero() && self.c1.is_zero()
+    }
+}
+impl FieldElement for Fq4 {
     fn one() -> Self {
         Fq4 {
             c0: Fq2::one(),
@@ -216,9 +223,6 @@ impl FieldElement for Fq4 {
             c0: Fq2::random(rng),
             c1: Fq2::random(rng),
         }
-    }
-    fn is_zero(&self) -> bool {
-        self.c0.is_zero() && self.c1.is_zero()
     }
     /// double this element
     #[inline(always)]

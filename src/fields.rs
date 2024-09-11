@@ -11,7 +11,7 @@ use alloc::fmt::Debug;
 use core::ops::{Add, Mul, MulAssign, Neg, Sub};
 use rand::Rng;
 
-use crate::u256::U256;
+use crate::{u256::U256, Zero};
 
 pub use self::fp::{Fq, Fr};
 pub use self::fq12::Fq12;
@@ -22,6 +22,7 @@ pub trait FieldElement:
     Sized
     + Copy
     + Clone
+    + Zero
     + Add<Output = Self>
     + Sub<Output = Self>
     + Mul<Output = Self>
@@ -30,10 +31,8 @@ pub trait FieldElement:
     + Eq
     + Debug
 {
-    fn zero() -> Self;
     fn one() -> Self;
     fn random<R: Rng>(_: &mut R) -> Self;
-    fn is_zero(&self) -> bool;
     fn squared(&self) -> Self;
     fn double(&self) -> Self;
     fn triple(&self) -> Self;
@@ -98,6 +97,10 @@ lazy_static::lazy_static! {
         0x29FC54B00A7138BA,
         0x49BFFFFFFD5C590E
     ]);
+
+    static ref FQ_INV: u128 = 0x181AE39613C8DBAF892BC42C2F2EE42B;
+
+    static ref FR_INV: u128 = 0xF590740D939A510D1D02662351974B53;
 
     pub static ref FQ_MINUS1_DIV4: Fq =
         Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
