@@ -431,7 +431,7 @@ impl GroupParams for G1Params {
     }
 
     fn coeff_b() -> Fq {
-        Fq::from_str("5").unwrap()
+        Fq::from_str("5").expect("5 is a valid field element")
     }
 }
 
@@ -464,7 +464,7 @@ impl GroupParams for G2Params {
     }
 
     fn coeff_b() -> Fq2 {
-        Fq2::i().scale(&Fq::from_str("5").unwrap())
+        Fq2::i().scale(&Fq::from_str("5").expect("5 is a valid field element"))
     }
 
     fn check_order() -> bool {
@@ -550,7 +550,6 @@ mod tests {
 
     #[test]
     fn test_g1() {
-        // println!("test_G1 test");
         group_trials::<G1>();
     }
 
@@ -585,7 +584,6 @@ mod tests {
 
     #[test]
     fn test_g1_dbl() {
-        // println!("test_G1_dbl test");
         let p1 = G1::new(
             Fq::from_slice(&P1X).unwrap(),
             Fq::from_slice(&P1Y).unwrap(),
@@ -601,7 +599,6 @@ mod tests {
 
     #[test]
     fn test_g1_add() {
-        // println!("test_G1_add test");
         let p1 = G1::new(
             Fq::from_slice(&P1X).unwrap(),
             Fq::from_slice(&P1Y).unwrap(),
@@ -623,7 +620,6 @@ mod tests {
 
     #[test]
     fn test_g1_sub() {
-        // println!("test_G1_sub test");
         let p1 = G1::new(
             Fq::from_slice(&P1X).unwrap(),
             Fq::from_slice(&P1Y).unwrap(),
@@ -650,7 +646,6 @@ mod tests {
 
     #[test]
     fn test_g1_mul() {
-        // println!("test_G1_mul test");
         let p1 = G1::new(
             Fq::from_slice(&P1X).unwrap(),
             Fq::from_slice(&P1Y).unwrap(),
@@ -721,13 +716,11 @@ mod tests {
 
     #[test]
     fn test_g2() {
-        // println!("test_G2 test");
         group_trials::<G2>();
     }
 
     #[test]
     fn test_g2_dbl() {
-        // println!("test_G2_dbl test");
         let x = Fq2::new(
             Fq::from_slice(&G2_P1XX).unwrap(),
             Fq::from_slice(&G2_P1XY).unwrap(),
@@ -751,7 +744,6 @@ mod tests {
 
     #[test]
     fn test_g2_add() {
-        // println!("test_G2_add test");
         let x = Fq2::new(
             Fq::from_slice(&G2_P1XX).unwrap(),
             Fq::from_slice(&G2_P1XY).unwrap(),
@@ -785,7 +777,6 @@ mod tests {
 
     #[test]
     fn test_g2_mul() {
-        // println!("test_G2_mul test");
         let x = Fq2::new(
             Fq::from_slice(&G2_P1XX).unwrap(),
             Fq::from_slice(&G2_P1XY).unwrap(),
@@ -810,7 +801,6 @@ mod tests {
 
     #[test]
     fn test_g2_mulg() {
-        // println!("test_G2_mulg test");
         let x = Fq2::new(
             Fq::from_slice(&G2_MULGXX).unwrap(),
             Fq::from_slice(&G2_MULGXY).unwrap(),
@@ -831,20 +821,23 @@ mod tests {
             res.is_err(),
             "Affine initialization should fail because the point is not on curve"
         );
+        let res = AffineG1::new(Fq::one(), G1Params::coeff_b());
+        assert!(
+            res.is_err(),
+            "Affine initialization should fail because the point is not on curve"
+        );
     }
 
     #[test]
     fn affine_ok() {
-        let res = AffineG1::new(Fq::one(), G1Params::coeff_b());
-        assert!(
-            res.is_err(),
-            "Affine initialization should be ok because the point is on the curve"
-        );
         let res = AffineG1::new(
             Fq::from_slice(&SM9_P1X).unwrap(),
             Fq::from_slice(&SM9_P1Y).unwrap(),
         );
-        assert!(res.is_ok());
+        assert!(
+            res.is_ok(),
+            "Affine initialization should be ok because the point is on the curve"
+        );
     }
     #[test]
     fn test_projective_point_equality() {

@@ -34,8 +34,11 @@ pub trait FieldElement:
     fn one() -> Self;
     fn random<R: Rng>(_: &mut R) -> Self;
     fn squared(&self) -> Self;
+    // double this element
     fn double(&self) -> Self;
+    // triple this element
     fn triple(&self) -> Self;
+    // Computes the inverse of this element
     fn inverse(&self) -> Option<Self>;
     // Left-to-right binary modular exponentiation with square-and-multiply method.
     fn pow<I: Into<U256>>(&self, by: I) -> Self

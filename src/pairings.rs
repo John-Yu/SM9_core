@@ -157,18 +157,15 @@ impl G2 {
         let t1 = t0 * self.z();
         let b1 = t1 * self.y();
 
-        let t2 = b1.scale(q.y());
-        let a1 = -t2;
+        let a1 = -b1.scale(q.y());
 
         let t1 = self.x().squared();
         let t0 = t0 * t1;
         let t0 = t0.scale(q.x());
-        let t0 = t0.triple();
-        let a4 = t0.div2();
+        let a4 = t0.triple().div2();
 
         let t1 = t1 * self.x();
-        let t1 = t1.triple();
-        let t1 = t1.div2();
+        let t1 = t1.triple().div2();
         let t0 = self.y().squared();
         let a0 = t0 - t1;
 
@@ -196,23 +193,18 @@ impl G2 {
         let t1 = t1 * self.z();
 
         let t1 = t1 * p.z();
-        let t4 = t1 * t0;
-        let b1 = t4;
+        let b1 = t1 * t0;
 
         let t1 = t1 * p.y();
         let t3 = t0 * self.y();
         let t3 = t3 - t2;
         let t0 = t0 * t3;
-        let t0 = t0.scale(q.x());
-        let a4 = t0;
+        let a4 = t0.scale(q.x());
 
-        let t3 = t3 * p.x();
-        let t3 = t3 * p.z();
-        let t1 = t1 - t3;
-        let a0 = t1;
+        let t3 = t3 * p.x() * p.z();
+        let a0 = t1 - t3;
 
-        let t2 = t4.scale(q.y());
-        let a1 = -t2;
+        let a1 = -b1.scale(q.y());
 
         num.c0 = Fq4::new(a0, a1);
         num.c2 = Fq4::new(a4, Fq2::zero());
