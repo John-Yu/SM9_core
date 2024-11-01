@@ -4,7 +4,7 @@ use core::ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 
 use crate::{
-    arith::{carrying_add, mac_with_carry},
+    arith::{adc, mac},
     fields::{
         FieldElement, FQ, FQ_INV, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_INV,
         FR_ONE, FR_SQUARED,
@@ -207,10 +207,10 @@ macro_rules! field_impl {
         }
 
         impl Index<usize> for $name {
-            type Output = u128;
+            type Output = u64;
             #[inline(always)]
             fn index(&self, index: usize) -> &Self::Output {
-                &self.0 .0[index]
+                &self.0[index]
             }
         }
 
@@ -291,47 +291,50 @@ impl Fq {
         //   intermediate results and eventually having twice as many limbs.
 
         // Algorithm 2, line 2
-        let (u0, u1, u2) = (0..2).fold((0, 0, 0), |(u0, u1, u2), j| {
+        let (u0, u1, u2, u3, u4) = (0..4).fold((0, 0, 0, 0, 0), |(u0, u1, u2, u3, u4), j| {
             // Algorithm 2, line 3
             // For each pair in the overall sum of products:
-            let (t0, t1, t2, t3) = (0..T).fold((u0, u1, u2, 0), |(t0, t1, t2, t3), i| {
-                // Compute digit_j x row and accumulate into `u`.
-                let d = a[i][j];
-                let e = b[i].0.as_ref();
-                let (t0, carry) = mac_with_carry(t0, d, e[0], 0);
-                let (t1, carry) = mac_with_carry(t1, d, e[1], carry);
-                let (t2, carry) = carrying_add(t2, carry, false);
-                let (t3, _) = carrying_add(t3, 0, carry);
-                (t0, t1, t2, t3)
-            });
+            let (t0, t1, t2, t3, t4, t5) =
+                (0..T).fold((u0, u1, u2, u3, u4, 0), |(t0, t1, t2, t3, t4, t5), i| {
+                    let d = a[i].0[j];
+                    let e = b[i].0.as_ref();
+                    // Compute digit_j x row and accumulate into `u`.
+                    let (t0, carry) = mac(t0, d, e[0], 0);
+                    let (t1, carry) = mac(t1, d, e[1], carry);
+                    let (t2, carry) = mac(t2, d, e[2], carry);
+                    let (t3, carry) = mac(t3, d, e[3], carry);
+                    let (t4, carry) = adc(t4, 0, carry);
+                    let (t5, _) = adc(t5, 0, carry);
+
+                    (t0, t1, t2, t3, t4, t5)
+                });
+
             // Algorithm 2, lines 4-5
             // This is a single step of the usual Montgomery reduction process.
-            let q = t0.wrapping_mul(*FQ_INV);
-            let (_, carry) = mac_with_carry(t0, q, FQ[0], 0);
-            let (r1, carry) = mac_with_carry(t1, q, FQ[1], carry);
-            let (r2, carry) = t2.overflowing_add(carry);
-            let (r3, _) = carrying_add(t3, 0, carry);
-            (r1, r2, r3)
+            // 4：q ← u · p′ mod 2^64,
+            let k = t0.wrapping_mul(*FQ_INV);
+            // 5：u ← (u + q · p)/2^64，
+            let m = FQ.as_ref();
+            let (_, carry) = mac(t0, k, m[0], 0);
+            let (r1, carry) = mac(t1, k, m[1], carry);
+            let (r2, carry) = mac(t2, k, m[2], carry);
+            let (r3, carry) = mac(t3, k, m[3], carry);
+            let (r4, carry) = adc(t4, 0, carry);
+            let (r5, _) = adc(t5, 0, carry);
+            (r1, r2, r3, r4, r5)
         });
-        let mut u = U256([u0, u1]);
-        if u2 != 0 {
+        // Because we represent F_p elements in non-redundant form, we need a final
+        // conditional subtraction to ensure the output is in range.
+        let mut r = U256::from([u0, u1, u2, u3]);
+        if u4 != 0 {
             // has carry
-            for _ in 0..u2 {
-                u.add_carry(&FQ);
+            for _ in 0..u4 {
+                r.add_carry(&FQ);
             }
         }
         // to ensure the output is in range.
-        if &u >= &FQ {
-            u.sub(&FQ, &FQ);
-        }
-        debug_assert_eq!(
-            a.iter()
-                .zip(b.iter())
-                .map(|(&a, &b)| a * b)
-                .fold(Fq::zero(), |acc, f| acc + f),
-            Fq(u)
-        );
-        Fq(u)
+        r.subtract_modulus_with_carry(&FQ, false);
+        Fq(r)
     }
 }
 

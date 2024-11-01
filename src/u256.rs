@@ -1,3 +1,6 @@
+use crate::arith::*;
+use crate::u512::U512;
+use ark_ff::{biginteger::BigInteger256 as B256, BigInteger as _};
 use byteorder::{BigEndian, ByteOrder};
 use core::{
     cmp::Ordering,
@@ -6,20 +9,14 @@ use core::{
 };
 use rand::Rng;
 
-use crate::arith::*;
-use crate::u512::U512;
-
 /// 256-bit stack allocated biginteger for use in prime field arithmetic.
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
-pub struct U256(pub(crate) [u128; 2]);
+pub struct U256(pub(crate) B256);
 
 impl From<[u64; 4]> for U256 {
     fn from(d: [u64; 4]) -> Self {
-        let mut a = [0u128; 2];
-        a[0] = (d[1] as u128) << 64 | d[0] as u128;
-        a[1] = (d[3] as u128) << 64 | d[2] as u128;
-        U256(a)
+        U256(B256::new(d))
     }
 }
 
@@ -39,12 +36,12 @@ impl U256 {
             });
         }
 
-        let mut n = [0; 2];
-        for (l, i) in (0..2).rev().zip((0..2).map(|i| i * 16)) {
-            n[l] = BigEndian::read_u128(&s[i..]);
+        let mut n = [0; 4];
+        for (l, i) in (0..4).rev().zip((0..4).map(|i| i * 8)) {
+            n[l] = BigEndian::read_u64(&s[i..]);
         }
 
-        Ok(U256(n))
+        Ok(U256::from(n))
     }
     /// Converts a U256 into a slice of bytes (big endian)
     pub fn to_big_endian(self, s: &mut [u8]) -> Result<(), Error> {
@@ -54,22 +51,20 @@ impl U256 {
                 actual: s.len(),
             });
         }
-
-        for (l, i) in (0..2).rev().zip((0..2).map(|i| i * 16)) {
-            BigEndian::write_u128(&mut s[i..], self.0[l]);
-        }
+        let be = self.0.to_bytes_be();
+        s.copy_from_slice(be.as_ref());
 
         Ok(())
     }
 
     #[inline]
     pub fn zero() -> U256 {
-        U256([0, 0])
+        U256(B256::zero())
     }
 
     #[inline]
     pub fn one() -> U256 {
-        U256([1, 0])
+        U256(B256::one())
     }
     /// Produce a random number (mod `modulo`)
     pub fn random<R: Rng>(rng: &mut R, modulo: &U256) -> U256 {
@@ -77,24 +72,24 @@ impl U256 {
     }
     /// Returns true if element is zero.
     pub fn is_zero(&self) -> bool {
-        self[0] == 0 && self[1] == 0
+        self.0.is_zero()
     }
     /// Returns true if element is one.
     pub fn is_one(&self) -> bool {
-        self[0] == 1 && self[1] == 0
+        self.0 == B256::one()
     }
 
     pub fn set_bit(&mut self, n: usize, to: bool) -> bool {
         if n >= 256 {
             false
         } else {
-            let part = n >> 7;
-            let bit = n & 0x7F;
+            let limb = n >> 6;
+            let bit = n & 0x3f;
 
             if to {
-                self[part] |= 1 << bit;
+                self.0 .0[limb] |= 1 << bit;
             } else {
-                self[part] &= !(1 << bit);
+                self.0 .0[limb] &= !(1 << bit);
             }
 
             true
@@ -105,98 +100,122 @@ impl U256 {
         if n >= 256 {
             None
         } else {
-            let part = n >> 7;
-            let bit = n & 0x7F;
-
-            Some(self[part] & (1 << bit) > 0)
+            Some(self.0.get_bit(n))
         }
     }
 
+    #[inline]
+    pub(crate) fn subtract_modulus_with_carry(&mut self, modulo: &U256, carry: bool) {
+        if carry || self.0 >= modulo.0 {
+            self.0.sub_with_borrow(&modulo.0);
+        }
+    }
     // self = self + 2^256 (mod `modulo`)
     pub(crate) fn add_carry(&mut self, modulo: &U256) {
-        loop {
-            if sub_borrow(&mut self.0, &modulo.0) {
-                break;
-            }
-        }
+        while !self.0.sub_with_borrow(&modulo.0) {}
     }
     /// Add `other` to `self` (mod `modulo`)
     pub fn add(&mut self, other: &U256, modulo: &U256) {
-        if add_carry(&mut self.0, &other.0) {
-            // has carry
-            self.add_carry(modulo);
-        } else if *self >= *modulo {
-            sub_noborrow(&mut self.0, &modulo.0);
-        }
+        let carry = self.0.add_with_carry(&other.0);
+        self.subtract_modulus_with_carry(modulo, carry);
     }
 
     /// Subtract `other` from `self` (mod `modulo`)
     pub fn sub(&mut self, other: &U256, modulo: &U256) {
-        if *self < *other {
-            //(a + q) - b = a + (q - b)
-            let mut a = *modulo;
-            sub_noborrow(&mut a.0, &other.0);
-            add_nocarry(&mut self.0, &a.0);
-        } else {
-            sub_noborrow(&mut self.0, &other.0);
+        // If `other` is larger than `self`, add the modulus to self first.
+        if self.0 < other.0 {
+            self.0.add_with_carry(&modulo.0);
         }
+        self.0.sub_with_borrow(&other.0);
     }
 
     /// a = a * 2 (mod `modulo`)
     pub fn mul2(&mut self, modulo: &U256) {
-        if mul2(&mut self.0) {
-            // has carry
-            self.add_carry(modulo);
-        } else if *self >= *modulo {
-            sub_noborrow(&mut self.0, &modulo.0);
-        }
+        let c = self.0.mul2();
+        self.subtract_modulus_with_carry(modulo, c);
     }
 
     /// a = a / 2 (mod `modulo`)
     pub fn div2(&mut self, modulo: &U256) {
         let mut carry = false;
-        if !self.is_even() {
-            carry = add_carry(&mut self.0, &modulo.0);
+        // If is odd, add the modulus to self first.
+        if self.0.is_odd() {
+            carry = self.0.add_with_carry(&modulo.0);
         }
-        div2(&mut self.0);
+        self.0.div2();
         if carry {
             self.set_bit(255, true);
+            self.subtract_modulus_with_carry(modulo, false);
         }
     }
 
     /// Multiply `self` by `other` (mod `modulo`) via the Montgomery
     /// multiplication method.
-    pub fn mul(&mut self, other: &U256, modulo: &U256, inv: u128) {
-        if mul_reduce(&mut self.0, &other.0, &modulo.0, inv) {
-            // has carry
-            self.add_carry(modulo);
-        } else if *self >= *modulo {
-            sub_noborrow(&mut self.0, &modulo.0);
-        }
+    pub fn mul(&mut self, other: &U256, modulo: &U256, inv: u64) {
+        let (carry, mut res) = self.mul_without_cond_subtract(other, modulo, inv);
+        res.subtract_modulus_with_carry(modulo, carry);
+        self.0 = res.0;
     }
 
     /// Square `self`  (mod `modulo`) via the Montgomery
-    pub fn square(&mut self, modulo: &U256, inv: u128) {
-        if square_reduce(&mut self.0, &modulo.0, inv) {
-            // has carry
-            self.add_carry(modulo);
-        } else if *self >= *modulo {
-            sub_noborrow(&mut self.0, &modulo.0);
+    pub fn square(&mut self, modulo: &U256, inv: u64) {
+        const N: usize = 4;
+        let mut r = MulBuffer::<N>::zeroed();
+        let a = self.as_mut();
+        let m = modulo.as_ref();
+
+        let mut carry = 0;
+        for i in 0..(N - 1) {
+            for j in (i + 1)..N {
+                r[i + j] = crate::mac_with_carry!(r[i + j], a[i], a[j], &mut carry);
+            }
+            r.b1[i] = carry;
+            carry = 0;
         }
+
+        r.b1[N - 1] = r.b1[N - 2] >> 63;
+        for i in 2..(2 * N - 1) {
+            r[2 * N - i] = (r[2 * N - i] << 1) | (r[2 * N - (i + 1)] >> 63);
+        }
+        r.b0[1] <<= 1;
+
+        for i in 0..N {
+            r[2 * i] = crate::mac_with_carry!(r[2 * i], a[i], a[i], &mut carry);
+            r[2 * i + 1] = crate::adc!(r[2 * i + 1], 0, &mut carry);
+        }
+        // Montgomery reduction
+        let mut carry2 = 0;
+        for i in 0..N {
+            let k = r[i].wrapping_mul(inv);
+            let mut carry = 0;
+            mac_discard(r[i], k, m[0], &mut carry);
+            for j in 1..N {
+                r[j + i] = crate::mac_with_carry!(r[j + i], k, m[j], &mut carry);
+            }
+            r.b1[i] = crate::adc!(r.b1[i], carry, &mut carry2);
+        }
+        a.copy_from_slice(&r.b1);
+
+        self.subtract_modulus_with_carry(modulo, carry2 != 0);
     }
 
     /// Turn `self` into its additive inverse (mod `modulo`)
+    #[inline]
     pub fn neg(&mut self, modulo: &U256) {
         if !self.is_zero() {
             let mut tmp = modulo.0;
-            sub_noborrow(&mut tmp, &self.0);
+            tmp.sub_with_borrow(&self.0);
             self.0 = tmp;
         }
     }
 
     #[inline]
     pub fn is_even(&self) -> bool {
-        self[0] & 1 == 0
+        self.0.is_even()
+    }
+    #[inline]
+    pub fn is_odd(&self) -> bool {
+        self.0.is_odd()
     }
 
     /// Turn `self` into its multiplicative inverse (mod `modulo`)
@@ -211,19 +230,19 @@ impl U256 {
 
         while !u.is_one() && !v.is_one() {
             while u.is_even() {
-                div2(&mut u.0);
+                u.0.div2();
                 b.div2(modulo);
             }
             while v.is_even() {
-                div2(&mut v.0);
+                v.0.div2();
                 c.div2(modulo);
             }
 
             if u >= v {
-                sub_noborrow(&mut u.0, &v.0);
+                u.0.sub_with_borrow(&v.0);
                 b.sub(&c, modulo);
             } else {
-                sub_noborrow(&mut v.0, &u.0);
+                v.0.sub_with_borrow(&u.0);
                 c.sub(&b, modulo);
             }
         }
@@ -244,6 +263,35 @@ impl U256 {
     /// That is, it skips all zeros before the most-significant one.
     pub fn bits_without_leading_zeros(&self) -> impl Iterator<Item = bool> + '_ {
         BitIterator { int: self, n: 256 }.skip_while(|b| !b)
+    }
+    fn mul_without_cond_subtract(mut self, other: &Self, modulo: &U256, inv: u64) -> (bool, Self) {
+        let mut r = MulBuffer::<4>::zeroed();
+        let e = other.as_ref();
+        for i in 0..4 {
+            let mut carry = 0;
+            let d = self[i];
+            for (j, ej) in e.iter().enumerate().take(4) {
+                let k = i + j;
+                r[k] = crate::mac_with_carry!(r[k], d, *ej, &mut carry);
+            }
+            r.b1[i] = carry;
+        }
+        // Montgomery reduction
+        let mut carry2 = 0;
+        let m = modulo.as_ref();
+        for i in 0..4 {
+            let tmp = r[i].wrapping_mul(inv);
+            let mut carry = 0;
+            mac_discard(r[i], tmp, m[0], &mut carry);
+            for (j, mj) in m.iter().enumerate().take(4).skip(1) {
+                let k = i + j;
+                r[k] = crate::mac_with_carry!(r[k], tmp, *mj, &mut carry);
+            }
+            r.b1[i] = crate::adc!(r.b1[i], carry, &mut carry2);
+        }
+        self.as_mut().copy_from_slice(&r.b1);
+
+        (carry2 != 0, self)
     }
 }
 
@@ -268,11 +316,7 @@ impl<'a> Iterator for BitIterator<'a> {
 impl Ord for U256 {
     #[inline]
     fn cmp(&self, other: &U256) -> Ordering {
-        match self[1].cmp(&other[1]) {
-            Ordering::Greater => Ordering::Greater,
-            Ordering::Less => Ordering::Less,
-            Ordering::Equal => self[0].cmp(&other[0]),
-        }
+        self.0.cmp(&other.0)
     }
 }
 
@@ -283,39 +327,43 @@ impl PartialOrd for U256 {
     }
 }
 
-impl AsMut<[u128]> for U256 {
+impl AsMut<[u64]> for U256 {
     #[inline]
-    fn as_mut(&mut self) -> &mut [u128] {
-        &mut self.0
+    fn as_mut(&mut self) -> &mut [u64] {
+        self.0.as_mut()
     }
 }
 
-impl AsRef<[u128]> for U256 {
+impl AsRef<[u64]> for U256 {
     #[inline]
-    fn as_ref(&self) -> &[u128] {
-        &self.0
+    fn as_ref(&self) -> &[u64] {
+        self.0.as_ref()
     }
 }
 
 impl Index<usize> for U256 {
-    type Output = u128;
+    type Output = u64;
     #[inline(always)]
     fn index(&self, index: usize) -> &Self::Output {
-        &self.0[index]
+        &self.0 .0[index]
     }
 }
 
 impl IndexMut<usize> for U256 {
     #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.0[index]
+        &mut self.0 .0[index]
     }
 }
 
 //
 impl fmt::Debug for U256 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "U256({:032X}{:032X})", self.0[1], self.0[0])
+        write!(
+            f,
+            "U256({:016X}{:016X}{:016X}{:016X})",
+            self[3], self[2], self[1], self[0]
+        )
     }
 }
 

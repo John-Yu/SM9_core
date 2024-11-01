@@ -101,9 +101,9 @@ lazy_static::lazy_static! {
         0x49BFFFFFFD5C590E
     ]);
 
-    static ref FQ_INV: u128 = 0x181AE39613C8DBAF892BC42C2F2EE42B;
+    static ref FQ_INV: u64 = 0x892BC42C2F2EE42B;
 
-    static ref FR_INV: u128 = 0xF590740D939A510D1D02662351974B53;
+    static ref FR_INV: u64 = 0x1D02662351974B53;
 
     pub static ref FQ_MINUS1_DIV4: Fq =
         Fq::new(1.into()).expect("1 is a valid field element and static; qed").neg() *
@@ -528,6 +528,17 @@ mod tests {
         // println!("sqr = {:?}", sqr);
 
         assert_eq!(r, sqr);
+    }
+    const H40: [u8; 40] =
+        hex!("8795E170FB592DE8BF5B2DB4181E8BA7EE4A3E50281FE2AE0DFA3AFFE018A2C0617FDDF42FB042A1");
+    const HASH_H40: [u8; 32] =
+        hex!("9CB1F6288CE0E51043CE72344582FFC301E0A812A7F5F2004B85547A24B82716");
+    #[test]
+    fn test_fr_from_hash() {
+        let x = Fr::new(U256::from_slice(&HASH_H40).unwrap()).unwrap();
+        let r = Fr::from_hash(&H40).unwrap();
+
+        assert_eq!(r, x);
     }
 
     #[test]
