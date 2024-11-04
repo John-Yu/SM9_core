@@ -5,7 +5,7 @@ use rand::Rng;
 
 use crate::{
     fields::{FieldElement, Fq4},
-    Zero,
+    One, Zero,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -150,7 +150,7 @@ impl Zero for Fq12 {
         self.c0.is_zero() && self.c1.is_zero() && self.c2.is_zero()
     }
 }
-impl FieldElement for Fq12 {
+impl One for Fq12 {
     #[inline]
     fn one() -> Self {
         Fq12 {
@@ -159,7 +159,8 @@ impl FieldElement for Fq12 {
             c2: Fq4::zero(),
         }
     }
-
+}
+impl FieldElement for Fq12 {
     fn random<R: Rng>(rng: &mut R) -> Self {
         Fq12 {
             c0: Fq4::random(rng),

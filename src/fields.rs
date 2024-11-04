@@ -11,7 +11,7 @@ use alloc::fmt::Debug;
 use core::ops::{Add, Mul, MulAssign, Neg, Sub};
 use rand::Rng;
 
-use crate::{u256::U256, Zero};
+use crate::{u256::U256, One, Zero};
 
 pub use self::fp::{Fq, Fr};
 pub use self::fq12::Fq12;
@@ -23,6 +23,7 @@ pub trait FieldElement:
     + Copy
     + Clone
     + Zero
+    + One
     + Add<Output = Self>
     + Sub<Output = Self>
     + Mul<Output = Self>
@@ -31,7 +32,7 @@ pub trait FieldElement:
     + Eq
     + Debug
 {
-    fn one() -> Self;
+    //fn one() -> Self;
     fn random<R: Rng>(_: &mut R) -> Self;
     fn squared(&self) -> Self;
     // double this element
@@ -156,7 +157,6 @@ mod tests {
     }
     #[test]
     fn u512_from_slice() {
-        // println!("U512 from_slice test");
         let tst = U512::one();
         let mut s = [0u8; 64];
         s[63] = 1; //BigEndian
@@ -168,7 +168,6 @@ mod tests {
 
     #[test]
     fn testing_divrem() {
-        // println!("U512 divrem test");
         let modulo = U256::from([
             0x3c208c16d87cfd47,
             0x97816a916871ca8d,
@@ -178,7 +177,6 @@ mod tests {
 
         let mut s = [0u8; 32];
         modulo.to_big_endian(&mut s).unwrap();
-        // println!("{:x?}", s);
         // Modulus should become 1*q + 0
         let a = U512::from([
             0x3c208c16d87cfd47,

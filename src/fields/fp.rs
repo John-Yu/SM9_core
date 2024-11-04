@@ -11,7 +11,7 @@ use crate::{
     },
     u256::U256,
     u512::U512,
-    Zero,
+    One, Zero,
 };
 
 macro_rules! field_impl {
@@ -61,8 +61,9 @@ macro_rules! field_impl {
             /// Converts a U256 to an Fp so long as it's below the modulus.
             pub fn new(mut a: U256) -> Option<Self> {
                 if a < *$modulus {
-                    a.mul(&$rsquared, &$modulus, $inv);
-
+                    if !a.is_zero() {
+                        a.mul(&$rsquared, &$modulus, $inv);
+                    }
                     Some($name(a))
                 } else {
                     None
@@ -154,12 +155,18 @@ macro_rules! field_impl {
                 self.0.is_zero()
             }
         }
-        impl FieldElement for $name {
+        impl One for $name {
             #[inline]
             fn one() -> Self {
                 $name(*$one)
             }
 
+            #[inline]
+            fn is_one(&self) -> bool {
+                *self == Self::one()
+            }
+        }
+        impl FieldElement for $name {
             fn random<R: Rng>(rng: &mut R) -> Self {
                 $name(U256::random(rng, &$modulus))
             }
@@ -264,10 +271,6 @@ impl Fq {
     pub fn div2(mut self) -> Self {
         self.0.div2(&FQ);
         self
-    }
-    /// Returns true if element is one.
-    pub fn is_one(&self) -> bool {
-        *self == Self::one()
     }
     /// Returns `c = a.zip(b).fold(0, |acc, (a_i, b_i)| acc + a_i * b_i)`.
     ///

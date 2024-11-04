@@ -49,7 +49,7 @@ impl<const N: usize> IndexMut<usize> for MulBuffer<N> {
         self.get_mut(index)
     }
 }
-#[macro_export]
+
 macro_rules! mac_with_carry {
     ($a:expr, $b:expr, $c:expr, &mut $carry:expr$(,)?) => {{
         let tmp = ($a as u128) + ($b as u128 * $c as u128) + ($carry as u128);
@@ -58,7 +58,6 @@ macro_rules! mac_with_carry {
     }};
 }
 
-#[macro_export]
 macro_rules! adc {
     ($a:expr, $b:expr, &mut $carry:expr$(,)?) => {{
         let tmp = ($a as u128) + ($b as u128) + ($carry as u128);

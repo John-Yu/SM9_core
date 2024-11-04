@@ -7,7 +7,7 @@ use crate::{
     fields::{FieldElement, Fq, FQ},
     u256::{Error, U256},
     u512::U512,
-    Zero,
+    One, Zero,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -205,7 +205,7 @@ impl Zero for Fq2 {
         self.c0.is_zero() && self.c1.is_zero()
     }
 }
-impl FieldElement for Fq2 {
+impl One for Fq2 {
     #[inline]
     fn one() -> Self {
         Fq2 {
@@ -213,7 +213,8 @@ impl FieldElement for Fq2 {
             c1: Fq::zero(),
         }
     }
-
+}
+impl FieldElement for Fq2 {
     fn random<R: Rng>(rng: &mut R) -> Self {
         Fq2 {
             c0: Fq::random(rng),

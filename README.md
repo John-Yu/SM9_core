@@ -15,7 +15,7 @@ Add the `sm9_core` crate to your dependencies in `Cargo.toml`
 
 ```toml
 [dependencies]
-sm9_core = "0.4.0"
+sm9_core = "0.4.1"
 ```
 
 ## API

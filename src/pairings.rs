@@ -7,7 +7,7 @@ use crate::{
     fields::{FieldElement, Fq, Fq12, Fq2, Fq4},
     groups::{GroupElement, G1, G2},
     u256::U256,
-    Zero,
+    One, Zero,
 };
 
 // abits = "00100000000000000000000000000000000000010000101100020200101000020";
@@ -48,7 +48,7 @@ impl Fq12 {
             exp >>= 1;
             base = base.squared();
             if exp & 1 == 1 {
-                acc *= &base;
+                acc *= base;
             }
         }
         acc
@@ -234,12 +234,12 @@ impl G2 {
                 (g_num, g_den) = t.eval_g_line(self, p);
                 f_num *= g_num;
                 f_den *= g_den;
-                t = t + *self;
+                t += self;
             } else if *i == 2 {
                 (g_num, g_den) = t.eval_g_line(&q1, p);
                 f_num *= g_num;
                 f_den *= g_den;
-                t = t + q1;
+                t += q1;
             }
         }
         q1 = self.point_pi1();
@@ -248,7 +248,7 @@ impl G2 {
         (g_num, g_den) = t.eval_g_line(&q1, p);
         f_num *= g_num;
         f_den *= g_den;
-        t = t + q1;
+        t += q1;
 
         (g_num, g_den) = t.eval_g_line(&q2, p);
         f_num *= g_num;
@@ -272,7 +272,7 @@ impl G2 {
     fn g_line(&mut self, g2: &G2) -> (Fq2, Fq2, Fq2) {
         let lam = self.z().squared();
         let c2 = self.y() - (lam * self.z()) * g2.y();
-        *self = *self + *g2;
+        *self += g2;
         let c0 = self.z;
         let c1 = -c2 * g2.x() - c0 * g2.y();
 
@@ -321,8 +321,8 @@ impl From<G2> for G2Prepared {
     fn from(g2: G2) -> G2Prepared {
         let mut coeffs: Vec<(Fq2, Fq2, Fq2)> = Vec::new();
         let mut p = g2;
-
-        for i in (0..65).rev() {
+        let bits = u128::BITS - SM9_LOOP_N.leading_zeros() - 1;
+        for i in (0..bits).rev() {
             let coeff = p.g_tangent();
             coeffs.push(coeff);
             if bit(SM9_LOOP_N, i) {
@@ -354,8 +354,8 @@ impl G2Prepared {
         let mut f = Fq12::one();
         let t1 = Fq2::new(g1.y, Fq::zero()).mul_by_nonresidue();
         let mut idx = 0;
-
-        for i in (0..65).rev() {
+        let bits = u128::BITS - SM9_LOOP_N.leading_zeros() - 1;
+        for i in (0..bits).rev() {
             let c = &self.coeffs[idx];
             idx += 1;
             f = f.squared();
@@ -386,7 +386,7 @@ pub fn fast_pairing(g1: &G1, g2: &G2) -> Fq12 {
 }
 
 #[inline]
-fn bit(n: u128, pos: usize) -> bool {
+fn bit(n: u128, pos: u32) -> bool {
     n & (1 << pos) != 0
 }
 

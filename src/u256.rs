@@ -1,5 +1,4 @@
-use crate::arith::*;
-use crate::u512::U512;
+use crate::{arith::*, u512::U512};
 use ark_ff::{biginteger::BigInteger256 as B256, BigInteger as _};
 use byteorder::{BigEndian, ByteOrder};
 use core::{
@@ -10,7 +9,7 @@ use core::{
 use rand::Rng;
 
 /// 256-bit stack allocated biginteger for use in prime field arithmetic.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Default, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct U256(pub(crate) B256);
 
@@ -36,12 +35,12 @@ impl U256 {
             });
         }
 
-        let mut n = [0; 4];
-        for (l, i) in (0..4).rev().zip((0..4).map(|i| i * 8)) {
-            n[l] = BigEndian::read_u64(&s[i..]);
+        let mut d = [0; 4];
+        for (j, i) in (0..4).rev().zip((0..4).map(|i| i * 8)) {
+            d[j] = BigEndian::read_u64(&s[i..]);
         }
 
-        Ok(U256::from(n))
+        Ok(U256::from(d))
     }
     /// Converts a U256 into a slice of bytes (big endian)
     pub fn to_big_endian(self, s: &mut [u8]) -> Result<(), Error> {
@@ -61,22 +60,22 @@ impl U256 {
     pub fn zero() -> U256 {
         U256(B256::zero())
     }
+    /// Returns true if element is zero.
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
 
     #[inline]
     pub fn one() -> U256 {
         U256(B256::one())
     }
-    /// Produce a random number (mod `modulo`)
-    pub fn random<R: Rng>(rng: &mut R, modulo: &U256) -> U256 {
-        U512::random(rng).divrem(modulo).1
-    }
-    /// Returns true if element is zero.
-    pub fn is_zero(&self) -> bool {
-        self.0.is_zero()
-    }
     /// Returns true if element is one.
     pub fn is_one(&self) -> bool {
         self.0 == B256::one()
+    }
+    /// Produce a random number (mod `modulo`)
+    pub fn random<R: Rng>(rng: &mut R, modulo: &U256) -> U256 {
+        U512::random(rng).divrem(modulo).1
     }
 
     pub fn set_bit(&mut self, n: usize, to: bool) -> bool {
@@ -159,40 +158,39 @@ impl U256 {
 
     /// Square `self`  (mod `modulo`) via the Montgomery
     pub fn square(&mut self, modulo: &U256, inv: u64) {
-        const N: usize = 4;
-        let mut r = MulBuffer::<N>::zeroed();
+        let mut r = MulBuffer::<4>::zeroed();
         let a = self.as_mut();
-        let m = modulo.as_ref();
 
         let mut carry = 0;
-        for i in 0..(N - 1) {
-            for j in (i + 1)..N {
-                r[i + j] = crate::mac_with_carry!(r[i + j], a[i], a[j], &mut carry);
+        for i in 0..3 {
+            for j in (i + 1)..4 {
+                r[i + j] = mac_with_carry!(r[i + j], a[i], a[j], &mut carry);
             }
             r.b1[i] = carry;
             carry = 0;
         }
 
-        r.b1[N - 1] = r.b1[N - 2] >> 63;
-        for i in 2..(2 * N - 1) {
-            r[2 * N - i] = (r[2 * N - i] << 1) | (r[2 * N - (i + 1)] >> 63);
+        r.b1[3] = r.b1[2] >> 63;
+        for i in 2..7 {
+            r[8 - i] = (r[8 - i] << 1) | (r[8 - (i + 1)] >> 63);
         }
         r.b0[1] <<= 1;
-
-        for i in 0..N {
-            r[2 * i] = crate::mac_with_carry!(r[2 * i], a[i], a[i], &mut carry);
-            r[2 * i + 1] = crate::adc!(r[2 * i + 1], 0, &mut carry);
+        for (i, ai) in a.iter().enumerate().take(4) {
+            r[2 * i] = mac_with_carry!(r[2 * i], *ai, *ai, &mut carry);
+            r[2 * i + 1] = adc!(r[2 * i + 1], 0, &mut carry);
         }
+
         // Montgomery reduction
         let mut carry2 = 0;
-        for i in 0..N {
+        let m = modulo.as_ref();
+        for i in 0..4 {
             let k = r[i].wrapping_mul(inv);
             let mut carry = 0;
             mac_discard(r[i], k, m[0], &mut carry);
-            for j in 1..N {
-                r[j + i] = crate::mac_with_carry!(r[j + i], k, m[j], &mut carry);
+            for (j, mj) in m.iter().enumerate().take(4).skip(1) {
+                r[i + j] = mac_with_carry!(r[i + j], k, *mj, &mut carry);
             }
-            r.b1[i] = crate::adc!(r.b1[i], carry, &mut carry2);
+            r.b1[i] = adc!(r.b1[i], carry, &mut carry2);
         }
         a.copy_from_slice(&r.b1);
 
@@ -267,12 +265,12 @@ impl U256 {
     fn mul_without_cond_subtract(mut self, other: &Self, modulo: &U256, inv: u64) -> (bool, Self) {
         let mut r = MulBuffer::<4>::zeroed();
         let e = other.as_ref();
-        for i in 0..4 {
+        let d = self.as_ref();
+        for (i, di) in d.iter().enumerate().take(4) {
             let mut carry = 0;
-            let d = self[i];
             for (j, ej) in e.iter().enumerate().take(4) {
                 let k = i + j;
-                r[k] = crate::mac_with_carry!(r[k], d, *ej, &mut carry);
+                r[k] = mac_with_carry!(r[k], *di, *ej, &mut carry);
             }
             r.b1[i] = carry;
         }
@@ -285,9 +283,9 @@ impl U256 {
             mac_discard(r[i], tmp, m[0], &mut carry);
             for (j, mj) in m.iter().enumerate().take(4).skip(1) {
                 let k = i + j;
-                r[k] = crate::mac_with_carry!(r[k], tmp, *mj, &mut carry);
+                r[k] = mac_with_carry!(r[k], tmp, *mj, &mut carry);
             }
-            r.b1[i] = crate::adc!(r.b1[i], carry, &mut carry2);
+            r.b1[i] = adc!(r.b1[i], carry, &mut carry2);
         }
         self.as_mut().copy_from_slice(&r.b1);
 

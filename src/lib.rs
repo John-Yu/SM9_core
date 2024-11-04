@@ -17,6 +17,7 @@ extern crate alloc;
 extern crate hex_literal;
 extern crate rand;
 
+#[macro_use]
 mod arith;
 mod fields;
 mod groups;
@@ -36,7 +37,7 @@ use crate::{
 };
 pub use core::str::FromStr;
 pub use hex_literal::hex;
-pub use num_traits::Zero;
+pub use num_traits::{One, Zero};
 
 #[derive(Debug)]
 pub enum FieldError {

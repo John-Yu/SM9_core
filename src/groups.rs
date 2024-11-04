@@ -2,7 +2,7 @@
 
 use core::{
     fmt,
-    ops::{Add, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Mul, Neg, Sub},
 };
 use hex_literal::hex;
 use rand::Rng;
@@ -10,7 +10,7 @@ use rand::Rng;
 use crate::{
     fields::{FieldElement, Fq, Fq2, Fr},
     u256::U256,
-    Zero,
+    One, Zero,
 };
 
 const SM9_P1X: [u8; 32] =
@@ -287,14 +287,23 @@ impl<P: GroupParams> Mul<Fr> for G<P> {
         for i in U256::from(other).bits_without_leading_zeros() {
             res = res.double();
             if i {
-                res = res + self;
+                res += self;
             }
         }
 
         res
     }
 }
-
+impl<P: GroupParams> AddAssign<G<P>> for G<P> {
+    fn add_assign(&mut self, other: G<P>) {
+        *self = *self + other;
+    }
+}
+impl<P: GroupParams> AddAssign<&G<P>> for G<P> {
+    fn add_assign(&mut self, rhs: &G<P>) {
+        *self = *self + rhs;
+    }
+}
 impl<P: GroupParams> Add<G<P>> for G<P> {
     type Output = G<P>;
     // SM9 dentity-based cryptographic algorithms
@@ -374,6 +383,20 @@ impl<P: GroupParams> Add<G<P>> for G<P> {
                 G { x, y, z }
             }
         }
+    }
+}
+impl<P: GroupParams> Add<&G<P>> for G<P> {
+    type Output = G<P>;
+
+    fn add(self, rhs: &G<P>) -> Self::Output {
+        self + *rhs
+    }
+}
+impl<P: GroupParams> Add<G<P>> for &G<P> {
+    type Output = G<P>;
+
+    fn add(self, rhs: G<P>) -> Self::Output {
+        *self + rhs
     }
 }
 

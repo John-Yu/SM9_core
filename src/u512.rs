@@ -1,5 +1,3 @@
-//#![allow(dead_code)]
-
 use ark_ff::{BigInt, BigInteger as _};
 use byteorder::{BigEndian, ByteOrder};
 use core::{cmp::Ordering, fmt, ops::Index};
@@ -45,12 +43,12 @@ impl U512 {
             });
         }
 
-        let mut n = [0; 8];
-        for (l, i) in (0..8).rev().zip((0..8).map(|i| i * 8)) {
-            n[l] = BigEndian::read_u64(&s[i..]);
+        let mut d = [0; 8];
+        for (j, i) in (0..8).rev().zip((0..8).map(|i| i * 8)) {
+            d[j] = BigEndian::read_u64(&s[i..]);
         }
 
-        Ok(U512::from(n))
+        Ok(U512::from(d))
     }
 
     /// Get a random U512
@@ -85,7 +83,7 @@ impl U512 {
         for i in (0..bits).rev() {
             let carry = r.0.mul2();
             r.set_bit(0, self.0.get_bit(i));
-            if r >= *modulo || carry {
+            if &r >= modulo || carry {
                 r.0.sub_with_borrow(&modulo.0);
                 if q.is_some() && !q.as_mut().unwrap().set_bit(i, true) {
                     q = None;
