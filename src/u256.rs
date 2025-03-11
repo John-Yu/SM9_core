@@ -298,7 +298,7 @@ pub struct BitIterator<'a> {
     n: usize,
 }
 
-impl<'a> Iterator for BitIterator<'a> {
+impl Iterator for BitIterator<'_> {
     type Item = bool;
 
     fn next(&mut self) -> Option<bool> {

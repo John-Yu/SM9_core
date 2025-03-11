@@ -368,13 +368,30 @@ mod tests {
         assert_eq!(F::zero().inverse(), None);
     }
 
+    fn test_zero<F: FieldElement>() {
+        let zero = F::zero();
+        assert_eq!(-zero, zero);
+        assert_eq!(zero - zero, zero);
+        // zero.is_zero() == true
+        assert!(zero.is_zero());
+    }
+
+    fn test_one<F: FieldElement>() {
+        let zero = F::zero();
+        let one = F::one();
+        assert_eq!(-one + one, zero);
+        assert_eq!(one - one, zero);
+        assert_eq!(zero + one, one);
+        // one.is_one() == true
+        assert!(one.is_one());
+    }
+
     #[test]
     fn test_fq() {
         // println!("can_invert::<Fq> test");
         can_invert::<Fq>();
-        assert_eq!(-Fq::zero(), Fq::zero());
-        assert_eq!(-Fq::one() + Fq::one(), Fq::zero());
-        assert_eq!(Fq::zero() - Fq::zero(), Fq::zero());
+        test_zero::<Fq>();
+        test_one::<Fq>();
         let a = Fq::new(1.into()).unwrap();
         assert_eq!(a, Fq::one());
         let a = Fq::from_str("1").unwrap();
@@ -541,8 +558,9 @@ mod tests {
 
     #[test]
     fn test_fq2() {
-        // println!("can_invert::<Fq2> test");
         can_invert::<Fq2>();
+        test_zero::<Fq2>();
+        test_one::<Fq2>();
         assert_eq!(-Fq2::zero(), Fq2::zero());
         assert_eq!(-Fq2::one() + Fq2::one(), Fq2::zero());
         assert_eq!(Fq2::zero() - Fq2::zero(), Fq2::zero());
@@ -845,6 +863,8 @@ mod tests {
     fn test_fq4_inv() {
         // println!("test_fq4_inv test");
         can_invert::<Fq4>();
+        test_zero::<Fq4>();
+        test_one::<Fq4>();
         let x0 = Fq2::new(
             Fq::new(U256::from_slice(&X00).unwrap()).unwrap(),
             Fq::new(U256::from_slice(&X01).unwrap()).unwrap(),
@@ -1134,6 +1154,8 @@ mod tests {
     fn test_fq12_inv() {
         // println!("test_fq12_inv test");
         can_invert::<Fq12>();
+        test_zero::<Fq12>();
+        test_one::<Fq12>();
         let r0 = Fq2::new(
             Fq::from_slice(&R_MUL00).unwrap(),
             Fq::from_slice(&R_MUL01).unwrap(),

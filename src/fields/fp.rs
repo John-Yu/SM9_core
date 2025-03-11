@@ -160,11 +160,6 @@ macro_rules! field_impl {
             fn one() -> Self {
                 $name(*$one)
             }
-
-            #[inline]
-            fn is_one(&self) -> bool {
-                *self == Self::one()
-            }
         }
         impl FieldElement for $name {
             fn random<R: Rng>(rng: &mut R) -> Self {

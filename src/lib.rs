@@ -66,7 +66,6 @@ impl From<FieldError> for CurveError {
 /// Represents an element of the finite field F<sub>r</sub>
 // where r = 0xB640000002A3A6F1D603AB4FF58EC74449F2934B18EA8BEEE56EE19CD69ECF25
 // Elements of Fr are always in Montgomery form; i.e., Fr(a) = aR mod r, with R = 2^256.
-
 /// # Examples
 ///
 /// ```rust
