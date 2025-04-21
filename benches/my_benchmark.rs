@@ -1,9 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::prelude::*;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use rand::rng;
 use sm9_core::*;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
     let a = Fr::random(rng);
     let b = Fr::random(rng);
     let g = G1::one() * a;

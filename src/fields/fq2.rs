@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand::Rng;
+use rand::TryRngCore;
 
 use crate::{
-    fields::{FieldElement, Fq, FQ},
+    One, Zero,
+    fields::{FQ, FieldElement, Fq},
     u256::{Error, U256},
     u512::U512,
-    One, Zero,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -215,11 +215,11 @@ impl One for Fq2 {
     }
 }
 impl FieldElement for Fq2 {
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        Fq2 {
-            c0: Fq::random(rng),
-            c1: Fq::random(rng),
-        }
+    /// Returns an element chosen uniformly at random using a user-provided RNG.
+    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+        let c0 = Fq::try_from_rng(rng)?;
+        let c1 = Fq::try_from_rng(rng)?;
+        Ok(Fq2 { c0, c1 })
     }
     /// double this element
     #[inline(always)]

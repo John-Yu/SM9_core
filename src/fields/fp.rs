@@ -1,17 +1,17 @@
 use alloc::vec::Vec;
 use core::fmt;
 use core::ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand::Rng;
+use rand::TryRngCore;
 
 use crate::{
+    One, Zero,
     arith::{adc, mac},
     fields::{
-        FieldElement, FQ, FQ_INV, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_INV,
-        FR_ONE, FR_SQUARED,
+        FQ, FQ_INV, FQ_MINUS1_DIV4, FQ_MINUS5_DIV8, FQ_ONE, FQ_SQUARED, FR, FR_INV, FR_ONE,
+        FR_SQUARED, FieldElement,
     },
     u256::U256,
     u512::U512,
-    One, Zero,
 };
 
 macro_rules! field_impl {
@@ -162,8 +162,9 @@ macro_rules! field_impl {
             }
         }
         impl FieldElement for $name {
-            fn random<R: Rng>(rng: &mut R) -> Self {
-                $name(U256::random(rng, &$modulus))
+            /// Returns an element chosen uniformly at random using a user-provided RNG.
+            fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+                Ok($name(U256::try_from_rng(rng, &$modulus)?))
             }
 
             /// Computes the inverse of this element,

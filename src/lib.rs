@@ -27,7 +27,7 @@ mod u512;
 
 use alloc::fmt::Debug;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand::Rng;
+use rand::RngCore;
 
 pub use crate::pairings::G2Prepared;
 use crate::{
@@ -146,7 +146,7 @@ impl Fr {
         self.0.inverse().map(Fr)
     }
     /// Get a random element
-    pub fn random<R: Rng>(rng: &mut R) -> Self {
+    pub fn random<R: RngCore + ?Sized>(rng: &mut R) -> Self {
         Fr(fields::Fr::random(rng))
     }
     /// Returns true if element is the additive identity.

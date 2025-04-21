@@ -8,9 +8,9 @@ use hex_literal::hex;
 use rand::Rng;
 
 use crate::{
+    One, Zero,
     fields::{FieldElement, Fq, Fq2, Fr},
     u256::U256,
-    One, Zero,
 };
 
 const SM9_P1X: [u8; 32] =
@@ -531,7 +531,7 @@ mod tests {
         assert!(G::zero().double().is_zero());
 
         assert!((G::one() * (-Fr::one()) + G::one()).is_zero());
-        use rand::{rngs::StdRng, SeedableRng};
+        use rand::{SeedableRng, rngs::StdRng};
         let seed = [
             0, 0, 0, 0, 0, 0, 64, 13, // 103245
             0, 0, 0, 0, 0, 0, 176, 2, // 191922

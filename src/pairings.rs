@@ -4,10 +4,10 @@ use alloc::vec::Vec;
 use core::ops::Neg;
 
 use crate::{
-    fields::{FieldElement, Fq, Fq12, Fq2, Fq4},
-    groups::{GroupElement, G1, G2},
-    u256::U256,
     One, Zero,
+    fields::{FieldElement, Fq, Fq2, Fq4, Fq12},
+    groups::{G1, G2, GroupElement},
+    u256::U256,
 };
 
 // abits = "00100000000000000000000000000000000000010000101100020200101000020";

@@ -1,12 +1,12 @@
 use crate::{arith::*, u512::U512};
-use ark_ff::{biginteger::BigInteger256 as B256, BigInteger as _};
+use ark_ff::{BigInteger as _, biginteger::BigInteger256 as B256};
 use byteorder::{BigEndian, ByteOrder};
 use core::{
     cmp::Ordering,
     fmt,
     ops::{Index, IndexMut},
 };
-use rand::Rng;
+use rand::TryRngCore;
 
 /// 256-bit stack allocated biginteger for use in prime field arithmetic.
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
@@ -74,8 +74,11 @@ impl U256 {
         self.0 == B256::one()
     }
     /// Produce a random number (mod `modulo`)
-    pub fn random<R: Rng>(rng: &mut R, modulo: &U256) -> U256 {
-        U512::random(rng).divrem(modulo).1
+    pub fn try_from_rng<R: TryRngCore + ?Sized>(
+        rng: &mut R,
+        modulo: &U256,
+    ) -> Result<Self, R::Error> {
+        U512::try_from_rng(rng).map(|x| x.divrem(modulo).1)
     }
 
     pub fn set_bit(&mut self, n: usize, to: bool) -> bool {
@@ -86,9 +89,9 @@ impl U256 {
             let bit = n & 0x3f;
 
             if to {
-                self.0 .0[limb] |= 1 << bit;
+                self.0.0[limb] |= 1 << bit;
             } else {
-                self.0 .0[limb] &= !(1 << bit);
+                self.0.0[limb] &= !(1 << bit);
             }
 
             true
@@ -343,14 +346,14 @@ impl Index<usize> for U256 {
     type Output = u64;
     #[inline(always)]
     fn index(&self, index: usize) -> &Self::Output {
-        &self.0 .0[index]
+        &self.0.0[index]
     }
 }
 
 impl IndexMut<usize> for U256 {
     #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.0 .0[index]
+        &mut self.0.0[index]
     }
 }
 

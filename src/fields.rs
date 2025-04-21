@@ -9,14 +9,14 @@ mod fq4;
 
 use alloc::fmt::Debug;
 use core::ops::{Add, Mul, MulAssign, Neg, Sub};
-use rand::Rng;
+use rand::{RngCore, TryRngCore};
 
-use crate::{u256::U256, One, Zero};
+use crate::{One, Zero, u256::U256};
 
 pub use self::fp::{Fq, Fr};
-pub use self::fq12::Fq12;
 pub use self::fq2::Fq2;
 pub use self::fq4::Fq4;
+pub use self::fq12::Fq12;
 
 pub trait FieldElement:
     Sized
@@ -32,8 +32,12 @@ pub trait FieldElement:
     + Eq
     + Debug
 {
-    //fn one() -> Self;
-    fn random<R: Rng>(_: &mut R) -> Self;
+    // Returns an element chosen uniformly at random using a user-provided RNG.
+    fn random<R: RngCore + ?Sized>(rng: &mut R) -> Self {
+        let Ok(out) = Self::try_from_rng(rng);
+        out
+    }
+    fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error>;
     fn squared(&self) -> Self;
     // double this element
     fn double(&self) -> Self;
@@ -399,7 +403,7 @@ mod tests {
     }
     #[test]
     fn test_sum_of_products() {
-        use rand::{rngs::StdRng, SeedableRng};
+        use rand::{SeedableRng, rngs::StdRng};
         let seed = [
             0, 0, 0, 0, 0, 0, 64, 13, // 103245
             0, 0, 0, 0, 0, 0, 176, 2, // 191922

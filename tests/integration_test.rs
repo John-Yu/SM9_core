@@ -1,6 +1,6 @@
 // import commonly used items from the prelude:
 //use hex_literal::hex;
-use rand::prelude::*;
+use rand::rng;
 use sm9_core::*;
 
 //A single round protocol is possible through the use of a bilinear pairing: given Alice's public key aP1 and Bob's public key bP2,
@@ -10,7 +10,7 @@ use sm9_core::*;
 fn test_joux() {
     // If we want to be a bit more explicit (and a little more efficient) we can
     // make a handle to the thread-local generator:
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
 
     // Generate private keys
     let alice_sk = Fr::random(rng);
@@ -35,7 +35,7 @@ fn test_joux() {
 // Requires two rounds
 #[test]
 fn test_dh() {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
 
     // Generate private keys
     let alice_sk = Fr::random(rng);
@@ -61,7 +61,7 @@ fn test_dh() {
 }
 #[test]
 fn test_bilinearity() {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
     let a = Fr::random(rng);
     let b = Fr::random(rng);
     let c = a * b;
@@ -136,7 +136,7 @@ fn test_gt_to_slice() {
 
 #[test]
 fn test_g1_compress() {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
     let a = Fr::random(rng);
     let mut g = G1::one() * a;
     g.normalize();
@@ -148,7 +148,7 @@ fn test_g1_compress() {
 
 #[test]
 fn test_g1_uncompress() {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
     let a = Fr::random(rng);
     let mut g = G1::one() * a;
     g.normalize();
@@ -160,7 +160,7 @@ fn test_g1_uncompress() {
 
 #[test]
 fn test_g2_compress() {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
     let a = Fr::random(rng);
     let mut g = G2::one() * a;
     g.normalize();
@@ -173,7 +173,7 @@ fn test_g2_compress() {
 
 #[test]
 fn test_g2_uncompress() {
-    let rng = &mut thread_rng();
+    let rng = &mut rng();
     let a = Fr::random(rng);
     let mut g = G2::one() * a;
     g.normalize();

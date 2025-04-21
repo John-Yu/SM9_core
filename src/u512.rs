@@ -1,7 +1,7 @@
 use ark_ff::{BigInt, BigInteger as _};
 use byteorder::{BigEndian, ByteOrder};
 use core::{cmp::Ordering, fmt, ops::Index};
-use rand::Rng;
+use rand::TryRngCore;
 
 use crate::u256::{Error, U256};
 
@@ -52,9 +52,13 @@ impl U512 {
     }
 
     /// Get a random U512
-    pub fn random<R: Rng>(rng: &mut R) -> U512 {
-        U512(rng.gen())
+    pub fn try_from_rng<R: TryRngCore + ?Sized>(rng: &mut R) -> Result<Self, R::Error> {
+        let mut buf = [0u8; 64];
+        rng.try_fill_bytes(&mut buf)?;
+        let out = U512::from_slice(&buf).expect("should be 64 bytes");
+        Ok(out)
     }
+
     /// Returns the number of bits necessary to represent this value. Note that zero
     /// is considered to need 0 bits.
     pub fn bit_length(&self) -> usize {
@@ -121,7 +125,7 @@ impl Index<usize> for U512 {
     type Output = u64;
     #[inline(always)]
     fn index(&self, index: usize) -> &Self::Output {
-        &self.0 .0[index]
+        &self.0.0[index]
     }
 }
 
